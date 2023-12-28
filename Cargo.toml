@@ -1,0 +1,17 @@
+[package]
+name = "wayland-pipewire-idle-inhibit"
+version = "0.1.0"
+authors = ["Rafael Carvalho <contact@rafaelrc.com>"]
+edition = "2021"
+license = "MIT"
+description = "Inhibit wayland idle when computer is playing sound"
+keywords = ["pipewire", "wayland", "utility", "idle"]
+categories = ["multimedia"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+pipewire = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs" }
+log = "0.4"
+env_logger = "0.10"
+
