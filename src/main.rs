@@ -250,16 +250,17 @@ fn registry_global_node(node: &GlobalObject<&DictRef>, registry: Rc<Registry>, g
     let listener: NodeListener = proxy.add_listener_local()
                                       .info({
                                           let graph = Arc::clone(&graph);
-                                          move |info| node_info(info, Arc::clone(&graph))
+                                          move |info| node_info(info, Arc::clone(&graph), update_event)
                                       })
                                       .register();
 
     info!("Event Registry Global Created Node id: {id}\tname: {name}\tmedia class: {media_class}");
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
     graph.insert(id, PWObject::Node { name, media_class, proxy: Proxy {proxy, listener} });
+    update_event.signal();
 }
 
-fn node_info(info: &NodeInfo, graph: Arc<Mutex<PWGraph>>) {
+fn node_info(info: &NodeInfo, graph: Arc<Mutex<PWGraph>>, update_event: Rc<EventSource>) {
     let id = info.id();
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
 
@@ -297,6 +298,7 @@ fn node_info(info: &NodeInfo, graph: Arc<Mutex<PWGraph>>) {
             });
         }
     };
+    update_event.signal();
 }
 
 fn direction_from_string(direction: &str) -> Direction {
@@ -326,7 +328,7 @@ fn registry_global_port(port: &GlobalObject<&DictRef>, registry: Rc<Registry>, g
     let listener: PortListener = proxy.add_listener_local()
                                       .info({
                                           let graph = Arc::clone(&graph);
-                                          move |info| port_info(info, Arc::clone(&graph))
+                                          move |info| port_info(info, Arc::clone(&graph), update_event)
                                       })
                                       .param(move |_, _param_id, _, _, _param| {} ) // TODO
                                       .register();
@@ -334,9 +336,10 @@ fn registry_global_port(port: &GlobalObject<&DictRef>, registry: Rc<Registry>, g
     info!("Event Registry Global Created Port ID: {id}\tNode ID: {node_id}\tName: {name}\tDirection: {:?}\tTerminal: {is_terminal}", direction);
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
     graph.insert(id, PWObject::Port { name, node_id, direction, is_terminal, proxy: Proxy {proxy, listener} });
+    update_event.signal();
 }
 
-fn port_info(info: &PortInfo, graph: Arc<Mutex<PWGraph>>) {
+fn port_info(info: &PortInfo, graph: Arc<Mutex<PWGraph>>, update_event: Rc<EventSource>) {
     let id = info.id();
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
 
@@ -403,6 +406,8 @@ fn port_info(info: &PortInfo, graph: Arc<Mutex<PWGraph>>) {
             });
         }
     };
+
+    update_event.signal();
 }
 
 fn registry_global_link(link: &GlobalObject<&DictRef>, registry: Rc<Registry>, graph: Arc<Mutex<PWGraph>>, update_event: Rc<EventSource>) {
@@ -423,16 +428,17 @@ fn registry_global_link(link: &GlobalObject<&DictRef>, registry: Rc<Registry>, g
     let listener: LinkListener = proxy.add_listener_local()
                                       .info({
                                           let graph = Arc::clone(&graph);
-                                          move |info| link_info(info, Arc::clone(&graph))
+                                          move |info| link_info(info, Arc::clone(&graph), update_event)
                                       })
                                       .register();
 
     info!("Event Registry Global Created Link ID: {id}\tInput Port ID: {input_port}\tOutput Port ID: {output_port}");
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
     graph.insert(id, PWObject::Link { input_port, output_port, active: false, proxy: Proxy {proxy, listener} });
+    update_event.signal();
 }
 
-fn link_info(info: &LinkInfo, graph: Arc<Mutex<PWGraph>>) {
+fn link_info(info: &LinkInfo, graph: Arc<Mutex<PWGraph>>, update_event: Rc<EventSource>) {
     let id = info.id();
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
 
@@ -486,12 +492,15 @@ fn link_info(info: &LinkInfo, graph: Arc<Mutex<PWGraph>>) {
             });
         }
     }
+
+    update_event.signal();
 }
 
-fn registry_global_remove(id: Id, graph: Arc<Mutex<PWGraph>>) {
+fn registry_global_remove(id: Id, graph: Arc<Mutex<PWGraph>>, update_event: Rc<EventSource>) {
     info!("Event Registry Global Remove Object id: {id}");
     let mut graph = graph.lock().expect("Failed to lock graph mutex");
     graph.remove(id);
+    update_event.signal();
 }
 
 fn main() {
@@ -509,7 +518,10 @@ fn main() {
     let check_idle_event = {
         let idle_state = Arc::clone(&idle_state);
         let graph = Arc::clone(&graph);
+        let mainloop = Rc::clone(&mainloop);
         Rc::new(mainloop.add_event(move || {
+            let mainloop = mainloop;
+            let mainloop = Rc::clone(&mainloop);
             let idle_state = Arc::clone(&idle_state);
             let graph = Arc::clone(&graph);
 
