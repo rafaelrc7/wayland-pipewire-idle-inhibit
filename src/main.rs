@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -158,7 +159,7 @@ impl PWGraph {
                 if let Some(node_ports) = self.get_node_ports(&node_id) {
                     let mut node_ports = node_ports.to_owned();
                     node_ports.remove(&id);
-                    if node_ports.len() > 0 {
+                    if !node_ports.is_empty() {
                         self.node_ports.insert(node_id, node_ports);
                     } else {
                         self.node_ports.remove(&node_id);
@@ -184,7 +185,7 @@ impl PWGraph {
     }
 
     fn check_node_active(&self, id: &Id, visited: &mut HashSet<Id>) -> bool {
-        visited.insert(id.clone());
+        visited.insert(*id);
 
         match self.get(id) {
             Some(PWObject::Node { .. }) => {
@@ -218,7 +219,7 @@ impl PWGraph {
             } else {
                 has_no_input_ports = false;
             }
-            let Some(links) = self.get_links_to_port(&port) else {
+            let Some(links) = self.get_links_to_port(port) else {
                 continue;
             };
             for link in links {
@@ -235,23 +236,21 @@ impl PWGraph {
             }
         }
 
-        if links_to_node.len() == 0 {
+        if links_to_node.is_empty() {
             return has_no_input_ports; // Has no input ports, thus is an active client
         };
 
         for (_, input_port) in links_to_node {
-            let Some(PWObject::Port { node_id, .. }) = self.get(&input_port) else {
+            let Some(PWObject::Port { node_id, .. }) = self.get(input_port) else {
                 error!("While transversing graph, expected Port, got something else with id {input_port}");
                 continue;
             };
-            if !visited.contains(node_id) {
-                if self.check_node_active(node_id, visited) {
-                    return true;
-                }
+            if !visited.contains(node_id) && self.check_node_active(node_id, visited) {
+                return true;
             }
         }
 
-        return false;
+        false
     }
 }
 
@@ -266,7 +265,7 @@ fn get_node_name(props: &DictRef) -> Option<&str> {
 fn registry_global_node(
     node: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
-    graph: Arc<Mutex<PWGraph>>,
+    graph: Rc<RefCell<PWGraph>>,
     update_event: mpsc::Sender<()>,
 ) {
     let id = node.id;
@@ -284,14 +283,14 @@ fn registry_global_node(
     let listener: NodeListener = proxy
         .add_listener_local()
         .info({
-            let graph = Arc::clone(&graph);
+            let graph = Rc::clone(&graph);
             let update_event = update_event.clone();
-            move |info| node_info(info, Arc::clone(&graph), update_event.clone())
+            move |info| node_info(info, Rc::clone(&graph), update_event.clone())
         })
         .register();
 
     info!("Event Registry Global Created Node id: {id}\tname: {name}\tmedia class: {media_class}");
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
     graph.insert(
         id,
         PWObject::Node {
@@ -304,9 +303,9 @@ fn registry_global_node(
     update_event.send(()).unwrap();
 }
 
-fn node_info(info: &NodeInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     let id = info.id();
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
 
     let Some(PWObject::Node {
         name, media_class, ..
@@ -365,7 +364,7 @@ fn direction_from_string(direction: &str) -> Direction {
 fn registry_global_port(
     port: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
-    graph: Arc<Mutex<PWGraph>>,
+    graph: Rc<RefCell<PWGraph>>,
     update_event: mpsc::Sender<()>,
 ) {
     let id = port.id;
@@ -397,15 +396,15 @@ fn registry_global_port(
     let listener: PortListener = proxy
         .add_listener_local()
         .info({
-            let graph = Arc::clone(&graph);
+            let graph = Rc::clone(&graph);
             let update_event = update_event.clone();
-            move |info| port_info(info, Arc::clone(&graph), update_event.clone())
+            move |info| port_info(info, Rc::clone(&graph), update_event.clone())
         })
         .param(move |_, _param_id, _, _, _param| {}) // TODO
         .register();
 
     info!("Event Registry Global Created Port ID: {id}\tNode ID: {node_id}\tName: {name}\tDirection: {:?}\tTerminal: {is_terminal}", direction);
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
     graph.insert(
         id,
         PWObject::Port {
@@ -420,9 +419,9 @@ fn registry_global_port(
     update_event.send(()).unwrap();
 }
 
-fn port_info(info: &PortInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     let id = info.id();
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
 
     let Some(PWObject::Port {
         name,
@@ -437,9 +436,9 @@ fn port_info(info: &PortInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Se
     };
 
     let name = name.clone();
-    let node_id = node_id.clone();
-    let direction = direction.clone();
-    let is_terminal = is_terminal.clone();
+    let node_id = *node_id;
+    let direction = *direction;
+    let is_terminal = *is_terminal;
 
     info!("Event Port Info id:{id}");
     let props = info.props().expect("PortInfo object is missing properties");
@@ -546,7 +545,7 @@ fn port_info(info: &PortInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Se
 fn registry_global_link(
     link: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
-    graph: Arc<Mutex<PWGraph>>,
+    graph: Rc<RefCell<PWGraph>>,
     update_event: mpsc::Sender<()>,
 ) {
     let id = link.id;
@@ -571,14 +570,14 @@ fn registry_global_link(
     let listener: LinkListener = proxy
         .add_listener_local()
         .info({
-            let graph = Arc::clone(&graph);
+            let graph = Rc::clone(&graph);
             let update_event = update_event.clone();
-            move |info| link_info(info, Arc::clone(&graph), update_event.clone())
+            move |info| link_info(info, Rc::clone(&graph), update_event.clone())
         })
         .register();
 
     info!("Event Registry Global Created Link ID: {id}\tInput Port ID: {input_port}\tOutput Port ID: {output_port}");
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
     graph.insert(
         id,
         PWObject::Link {
@@ -592,11 +591,11 @@ fn registry_global_link(
     update_event.send(()).unwrap();
 }
 
-fn link_info(info: &LinkInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     let id = info.id();
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
 
-    let Some(PWObject::Link {
+    let Some(&PWObject::Link {
         input_port,
         output_port,
         active,
@@ -606,10 +605,6 @@ fn link_info(info: &LinkInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Se
         error!("'info' event fired for unknown Link with id {id}");
         return;
     };
-
-    let input_port = input_port.clone();
-    let output_port = output_port.clone();
-    let active = active.clone();
 
     info!("Event Link Info id:{id}");
     let props = info.props().expect("LinkInfo object is missing properties");
@@ -684,9 +679,9 @@ fn link_info(info: &LinkInfo, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Se
     update_event.send(()).unwrap();
 }
 
-fn registry_global_remove(id: Id, graph: Arc<Mutex<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn registry_global_remove(id: Id, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     info!("Event Registry Global Remove Object id: {id}");
-    let mut graph = graph.lock().expect("Failed to lock graph mutex");
+    let mut graph = graph.borrow_mut();
     graph.remove(id);
 
     update_event.send(()).unwrap();
@@ -695,26 +690,26 @@ fn registry_global_remove(id: Id, graph: Arc<Mutex<PWGraph>>, update_event: mpsc
 fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Receiver<PWSignal>) {
     let mainloop = MainLoop::new().expect("Failed to create mainloop.");
 
-    let graph: Arc<Mutex<PWGraph>> = Arc::new(Mutex::new(PWGraph::new()));
+    let graph = Rc::new(RefCell::new(PWGraph::new()));
     let idle_state: Arc<Mutex<IdleState>> = Arc::new(Mutex::new(IdleState::new()));
 
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
     let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
 
-    let graph_clone = Arc::clone(&graph);
-
+    
     let _listener = {
         registry
             .add_listener_local()
             .global({
                 let registry = Rc::clone(&registry);
-                let graph = Arc::clone(&graph);
+                let graph = Rc::clone(&graph);
                 let main_sender = main_sender.clone();
 
                 move |global| {
                     let registry = Rc::clone(&registry);
-                    let graph = Arc::clone(&graph);
+                    let graph = Rc::clone(&graph);
+
                     match global.type_ {
                         ObjectType::Node => {
                             registry_global_node(global, registry, graph, main_sender.clone())
@@ -730,12 +725,11 @@ fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Rece
                 }
             })
             .global_remove({
-                let graph = Arc::clone(&graph);
+                let graph = Rc::clone(&graph);
                 let main_sender = main_sender.clone();
 
                 move |id| {
-                    let graph = Arc::clone(&graph);
-                    registry_global_remove(id, graph, main_sender.clone());
+                    registry_global_remove(id, Rc::clone(&graph), main_sender.clone());
                 }
             })
             .register()
@@ -751,9 +745,11 @@ fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Rece
             PWSignal::CheckIdleEvent => {
                 // _check_idle_event.signal();
 
-                let graph = graph_clone.lock().expect("Failed to lock graph mutex");
+                let graph = graph.borrow_mut();
                 let mut idle_state = idle_state.lock().expect("Failed to lock Idle State");
                 idle_state.idle = !graph.get_active_sinks().is_empty();
+
+                dbg!(idle_state.idle);
             }
         }
     });
@@ -765,7 +761,7 @@ fn main() {
     let (main_sender, main_receiver) = mpsc::channel();
     let (pw_sender, pw_receiver) = pipewire::channel::channel();
 
-    let pw_thread = thread::spawn(move || pw_thread(main_sender, pw_receiver));
+    let _pw_thread = thread::spawn(move || pw_thread(main_sender, pw_receiver));
 
     // while let () = main_receiver.recv().unwrap() {
     //     pw_sender.send(PWSignal::CheckIdleEvent);
