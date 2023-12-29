@@ -83,15 +83,16 @@ impl PWGraph {
                 output_port,
                 ..
             } => {
+                info!("New Link {input_port} -> {output_port}");
                 let mut links_to_port: HashSet<Id> = match self.get_links_to_port(&output_port) {
-                    Some(s) => s.to_owned(),
+                    Some(s) => s.clone(),
                     None => HashSet::new(),
                 };
                 links_to_port.insert(id);
                 self.links_to_port.insert(output_port, links_to_port);
 
                 let mut links_from_port: HashSet<Id> = match self.get_links_from_port(&input_port) {
-                    Some(v) => v.to_owned(),
+                    Some(v) => v.clone(),
                     None => HashSet::new(),
                 };
                 links_from_port.insert(id);
@@ -99,7 +100,7 @@ impl PWGraph {
             }
             PWObject::Port { node_id, .. } => {
                 let mut node_ports: HashSet<Id> = match self.get_node_ports(&node_id) {
-                    Some(s) => s.to_owned(),
+                    Some(s) => s.clone(),
                     None => HashSet::new(),
                 };
                 node_ports.insert(id);
@@ -152,12 +153,20 @@ impl PWGraph {
                 output_port,
                 ..
             }) => {
-                self.links_from_port.remove(&input_port);
-                self.links_to_port.remove(&output_port);
+                if let Some(mut links_from_port) = self.links_from_port.remove(&output_port) {
+                    links_from_port.remove(&id);
+                    self.links_from_port.insert(output_port, links_from_port);
+                };
+
+                if let Some(mut links_to_port) = self.links_to_port.remove(&input_port) {
+                    links_to_port.remove(&id);
+                    self.links_to_port.insert(input_port, links_to_port);
+                };
+
             }
             Some(PWObject::Port { node_id, .. }) => {
                 if let Some(node_ports) = self.get_node_ports(&node_id) {
-                    let mut node_ports = node_ports.to_owned();
+                    let mut node_ports = node_ports.clone();
                     node_ports.remove(&id);
                     if !node_ports.is_empty() {
                         self.node_ports.insert(node_id, node_ports);
@@ -176,6 +185,7 @@ impl PWGraph {
         let mut active_sinks: HashSet<&Id> = HashSet::new();
 
         for sink in &self.sinks {
+            trace!("Transversing graph: Sink {sink}");
             if self.check_node_active(sink, &mut HashSet::new()) {
                 active_sinks.insert(sink);
             }
@@ -187,6 +197,7 @@ impl PWGraph {
     fn check_node_active(&self, id: &Id, visited: &mut HashSet<Id>) -> bool {
         visited.insert(*id);
 
+        trace!("Transversing graph: Node {id}");
         match self.get(id) {
             Some(PWObject::Node { .. }) => {
                 // TODO: Specific Node tests
@@ -202,8 +213,10 @@ impl PWGraph {
         };
 
         let Some(node_ports) = self.node_ports.get(id) else {
+            trace!("Transversing graph: Node {id}: No ports");
             return false;
         };
+        trace!("Transversing Graph: Node {id}: Node Ports: {}", node_ports.len());
 
         let mut has_no_input_ports = true;
         let mut links_to_node: HashSet<(&Id, &Id)> = HashSet::new();
@@ -219,24 +232,28 @@ impl PWGraph {
             } else {
                 has_no_input_ports = false;
             }
+            trace!("Transversing Graph: Node {id}: Input Port {port}");
             let Some(links) = self.get_links_to_port(port) else {
+                trace!("Transversing Graph: Node {id}: No links to Input Port {port}");
                 continue;
             };
+            trace!("Transversing Graph: Node {id}: links to Input Port {port}: {}", links.len());
             for link in links {
                 let Some(PWObject::Link {
-                    input_port, active, ..
+                    output_port, active, ..
                 }) = self.get(link)
                 else {
                     error!("While transversing graph, expected Link, got something else with id {link}");
                     continue;
                 };
                 if *active {
-                    links_to_node.insert((&link, &input_port));
+                    links_to_node.insert((&link, &output_port));
                 }
             }
         }
 
         if links_to_node.is_empty() {
+            trace!("Transversing Graph: Node {id}: No Active Links to node");
             return has_no_input_ports; // Has no input ports, thus is an active client
         };
 
@@ -581,8 +598,8 @@ fn registry_global_link(
     graph.insert(
         id,
         PWObject::Link {
-            input_port,
-            output_port,
+            input_port: output_port,
+            output_port: input_port,
             active: false,
             proxy: Proxy { proxy, listener },
         },
@@ -697,7 +714,7 @@ fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Rece
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
     let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
 
-    
+
     let _listener = {
         registry
             .add_listener_local()
@@ -758,6 +775,7 @@ fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Rece
 }
 
 fn main() {
+    env_logger::init();
     let (main_sender, main_receiver) = mpsc::channel();
     let (pw_sender, pw_receiver) = pipewire::channel::channel();
 
