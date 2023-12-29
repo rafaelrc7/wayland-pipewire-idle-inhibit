@@ -14,4 +14,5 @@ categories = ["multimedia"]
 pipewire = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs" }
 log = "0.4"
 env_logger = "0.10"
+timer = "0.2"
 
