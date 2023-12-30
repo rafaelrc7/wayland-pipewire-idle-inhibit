@@ -1,23 +1,21 @@
 mod pipewire_connection;
 
 use std::cell::RefCell;
-use std::collections::HashSet;
+use std::rc::Rc;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::{collections::HashMap, rc::Rc};
 
 use log::{debug, error, info, log, trace, warn};
+use signal_hook::{consts::{SIGINT, SIGQUIT, SIGTERM}, iterator::Signals};
 use pipewire::context::Context;
 use pipewire::link::{Link, LinkChangeMask, LinkInfo, LinkListener, LinkState};
-use pipewire::loop_::EventSource;
 use pipewire::main_loop::MainLoop;
 use pipewire::node::{NodeInfo, NodeListener};
 use pipewire::port::{Port, PortInfo, PortListener};
-use pipewire::proxy::{Listener, ProxyT};
 use pipewire::registry::{GlobalObject, Registry};
 use pipewire::spa::utils::dict::DictRef;
 use pipewire::spa::utils::Direction;
-use pipewire::{init, keys, node::Node, types::ObjectType};
+use pipewire::{keys, node::Node, types::ObjectType};
 
 use pipewire_connection::graph::{
     Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy,
@@ -44,7 +42,7 @@ fn registry_global_node(
     node: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<()>,
+    update_event: mpsc::Sender<PWSignal>,
 ) {
     let id = node.id;
     let props = node
@@ -87,10 +85,10 @@ fn registry_global_node(
         },
     );
 
-    update_event.send(()).unwrap();
+    update_event.send(PWSignal::CheckIdleEvent).unwrap();
 }
 
-fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
     let id = info.id();
     info!("Event Node Info id:{id}");
 
@@ -113,7 +111,7 @@ fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
         media_software,
     };
     if graph.borrow_mut().update(id, PWObjectData::Node(new_data)) {
-        update_event.send(()).unwrap();
+        update_event.send(PWSignal::CheckIdleEvent).unwrap();
     }
 }
 
@@ -129,7 +127,7 @@ fn registry_global_port(
     port: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<()>,
+    update_event: mpsc::Sender<PWSignal>,
 ) {
     let id = port.id;
 
@@ -174,10 +172,10 @@ fn registry_global_port(
         },
     );
 
-    update_event.send(()).unwrap();
+    update_event.send(PWSignal::CheckIdleEvent).unwrap();
 }
 
-fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
     let id = info.id();
     info!("Event Port Info id:{id}");
 
@@ -200,7 +198,7 @@ fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
         is_terminal,
     };
     if graph.borrow_mut().update(id, PWObjectData::Port(new_data)) {
-        update_event.send(()).unwrap();
+        update_event.send(PWSignal::CheckIdleEvent).unwrap();
     }
 }
 
@@ -208,7 +206,7 @@ fn registry_global_link(
     link: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<()>,
+    update_event: mpsc::Sender<PWSignal>,
 ) {
     let id = link.id;
 
@@ -251,10 +249,10 @@ fn registry_global_link(
         },
     );
 
-    update_event.send(()).unwrap();
+    update_event.send(PWSignal::CheckIdleEvent).unwrap();
 }
 
-fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
     let id = info.id();
     info!("Event Link Info id:{id}");
 
@@ -280,18 +278,19 @@ fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
         active,
     };
     if graph.borrow_mut().update(id, PWObjectData::Link(new_data)) {
-        update_event.send(()).unwrap();
+        update_event.send(PWSignal::CheckIdleEvent).unwrap();
     }
 }
 
-fn registry_global_remove(id: Id, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
+fn registry_global_remove(id: Id, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
     info!("Event Registry Global Remove Object id: {id}");
     graph.borrow_mut().remove(id);
 
-    update_event.send(()).unwrap();
+    update_event.send(PWSignal::CheckIdleEvent).unwrap();
 }
 
-fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Receiver<PWSignal>) {
+fn pw_thread(main_sender: mpsc::Sender<PWSignal>, pw_receiver: pipewire::channel::Receiver<PWSignal>) {
+    pipewire::init();
     let mainloop = MainLoop::new().expect("Failed to create mainloop.");
 
     let graph = Rc::new(RefCell::new(PWGraph::new()));
@@ -352,7 +351,6 @@ fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Rece
                 let mut idle_state = idle_state.lock().expect("Failed to lock Idle State");
                 idle_state.idle = !graph.get_active_sinks().is_empty();
 
-                dbg!(idle_state.idle);
             }
         }
     });
@@ -365,17 +363,27 @@ fn main() {
     let (main_sender, main_receiver) = mpsc::channel();
     let (pw_sender, pw_receiver) = pipewire::channel::channel();
 
-    let _pw_thread = thread::spawn(move || pw_thread(main_sender, pw_receiver));
+    let pw_thread = thread::spawn({
+        let main_sender = main_sender.clone();
+        move || pw_thread(main_sender, pw_receiver)
+    });
 
-    // while let () = main_receiver.recv().unwrap() {
-    //     pw_sender.send(PWSignal::CheckIdleEvent);
-    // }
+    let mut signals = Signals::new(&[SIGINT, SIGQUIT, SIGTERM]).expect("Failed to create signal listener");
+    thread::spawn({
+        let main_sender = main_sender.clone();
+        move || {
+            for _sig in signals.forever() {
+                main_sender.send(PWSignal::Terminate).unwrap();
+            }
+    }});
 
     loop {
-        main_receiver.recv().unwrap();
-        pw_sender.send(PWSignal::CheckIdleEvent).unwrap();
+        match main_receiver.recv().unwrap() {
+            PWSignal::CheckIdleEvent => pw_sender.send(PWSignal::CheckIdleEvent).unwrap(),
+            PWSignal::Terminate => break,
+        };
     }
 
-    // pw_sender.send(PWSignal::Terminate);
-    // pw_thread.join();
+     pw_sender.send(PWSignal::Terminate).unwrap();
+     pw_thread.join().unwrap();
 }
