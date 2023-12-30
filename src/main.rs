@@ -1,3 +1,5 @@
+mod pipewire_connection;
+
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{mpsc, Arc, Mutex};
@@ -17,38 +19,14 @@ use pipewire::spa::utils::dict::DictRef;
 use pipewire::spa::utils::Direction;
 use pipewire::{init, keys, node::Node, types::ObjectType};
 
-type Id = u32;
+use pipewire_connection::graph::{
+    Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy,
+};
 
 #[derive(Debug)]
 enum PWSignal {
     CheckIdleEvent,
     Terminate,
-}
-
-struct Proxy<TProxy: ProxyT, TListener: Listener> {
-    proxy: TProxy,
-    listener: TListener,
-}
-
-enum PWObject {
-    Node {
-        name: String,
-        media_class: String,
-        proxy: Proxy<Node, NodeListener>,
-    },
-    Port {
-        name: String,
-        node_id: Id,
-        direction: Direction,
-        is_terminal: bool,
-        proxy: Proxy<Port, PortListener>,
-    },
-    Link {
-        input_port: Id,
-        output_port: Id,
-        active: bool,
-        proxy: Proxy<Link, LinkListener>,
-    },
 }
 
 #[derive(Default)]
@@ -62,223 +40,6 @@ impl IdleState {
     }
 }
 
-#[derive(Default)]
-struct PWGraph {
-    objects: HashMap<Id, PWObject>,
-    sinks: HashSet<Id>,
-    links_to_port: HashMap<Id, HashSet<Id>>,
-    links_from_port: HashMap<Id, HashSet<Id>>,
-    node_ports: HashMap<Id, HashSet<Id>>,
-}
-
-impl PWGraph {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn insert(&mut self, id: Id, obj: PWObject) {
-        match obj {
-            PWObject::Link {
-                input_port,
-                output_port,
-                ..
-            } => {
-                info!("New Link {input_port} -> {output_port}");
-                let mut links_to_port: HashSet<Id> = match self.get_links_to_port(&output_port) {
-                    Some(s) => s.clone(),
-                    None => HashSet::new(),
-                };
-                links_to_port.insert(id);
-                self.links_to_port.insert(output_port, links_to_port);
-
-                let mut links_from_port: HashSet<Id> = match self.get_links_from_port(&input_port) {
-                    Some(v) => v.clone(),
-                    None => HashSet::new(),
-                };
-                links_from_port.insert(id);
-                self.links_from_port.insert(input_port, links_from_port);
-            }
-            PWObject::Port { node_id, .. } => {
-                let mut node_ports: HashSet<Id> = match self.get_node_ports(&node_id) {
-                    Some(s) => s.clone(),
-                    None => HashSet::new(),
-                };
-                node_ports.insert(id);
-                self.node_ports.insert(node_id, node_ports);
-            }
-            PWObject::Node {
-                ref media_class, ..
-            } => {
-                if media_class.contains("Sink") {
-                    self.sinks.insert(id);
-                }
-            }
-        }
-
-        self.objects.insert(id, obj);
-    }
-
-    pub fn get(&self, id: &Id) -> Option<&PWObject> {
-        self.objects.get(id)
-    }
-
-    pub fn get_links_to_port(&self, output_port: &Id) -> Option<&HashSet<Id>> {
-        self.links_to_port.get(output_port)
-    }
-
-    pub fn get_links_from_port(&self, input_port: &Id) -> Option<&HashSet<Id>> {
-        self.links_from_port.get(input_port)
-    }
-
-    pub fn get_node_ports(&self, node_id: &Id) -> Option<&HashSet<Id>> {
-        self.node_ports.get(node_id)
-    }
-
-    pub fn get_sinks(&self) -> &HashSet<Id> {
-        &self.sinks
-    }
-
-    pub fn map_object<F: Fn(PWObject) -> PWObject>(&mut self, id: Id, update: F) {
-        if let Some(obj) = self.objects.remove(&id) {
-            self.objects.insert(id, update(obj));
-        };
-    }
-
-    pub fn remove(&mut self, id: Id) -> Option<PWObject> {
-        let removed = self.objects.remove(&id);
-
-        match removed {
-            Some(PWObject::Link {
-                input_port,
-                output_port,
-                ..
-            }) => {
-                if let Some(mut links_from_port) = self.links_from_port.remove(&output_port) {
-                    links_from_port.remove(&id);
-                    self.links_from_port.insert(output_port, links_from_port);
-                };
-
-                if let Some(mut links_to_port) = self.links_to_port.remove(&input_port) {
-                    links_to_port.remove(&id);
-                    self.links_to_port.insert(input_port, links_to_port);
-                };
-
-            }
-            Some(PWObject::Port { node_id, .. }) => {
-                if let Some(node_ports) = self.get_node_ports(&node_id) {
-                    let mut node_ports = node_ports.clone();
-                    node_ports.remove(&id);
-                    if !node_ports.is_empty() {
-                        self.node_ports.insert(node_id, node_ports);
-                    } else {
-                        self.node_ports.remove(&node_id);
-                    }
-                }
-            }
-            _ => {}
-        };
-
-        removed
-    }
-
-    pub fn get_active_sinks(&self) -> HashSet<&Id> {
-        let mut active_sinks: HashSet<&Id> = HashSet::new();
-
-        for sink in &self.sinks {
-            trace!("Transversing graph: Sink {sink}");
-            if self.check_node_active(sink, &mut HashSet::new()) {
-                active_sinks.insert(sink);
-            }
-        }
-
-        active_sinks
-    }
-
-    fn check_node_active(&self, id: &Id, visited: &mut HashSet<Id>) -> bool {
-        visited.insert(*id);
-
-        trace!("Transversing graph: Node {id}");
-        match self.get(id) {
-            Some(PWObject::Node { .. }) => {
-                // TODO: Specific Node tests
-            }
-            None => {
-                error!("While transversing graph, got invalid id {id}");
-                return false;
-            }
-            _ => {
-                warn!("While transversing graph, got unexpected object with id {id}");
-                return false;
-            }
-        };
-
-        let Some(node_ports) = self.node_ports.get(id) else {
-            trace!("Transversing graph: Node {id}: No ports");
-            return false;
-        };
-        trace!("Transversing Graph: Node {id}: Node Ports: {}", node_ports.len());
-
-        let mut has_no_input_ports = true;
-        let mut links_to_node: HashSet<(&Id, &Id)> = HashSet::new();
-        for port in node_ports {
-            let Some(PWObject::Port { ref direction, .. }) = self.get(port) else {
-                error!(
-                    "While transversing graph, expected Port, got something else with id {port}"
-                );
-                continue;
-            };
-            if !(*direction == Direction::Input) {
-                continue;
-            } else {
-                has_no_input_ports = false;
-            }
-            trace!("Transversing Graph: Node {id}: Input Port {port}");
-            let Some(links) = self.get_links_to_port(port) else {
-                trace!("Transversing Graph: Node {id}: No links to Input Port {port}");
-                continue;
-            };
-            trace!("Transversing Graph: Node {id}: links to Input Port {port}: {}", links.len());
-            for link in links {
-                let Some(PWObject::Link {
-                    output_port, active, ..
-                }) = self.get(link)
-                else {
-                    error!("While transversing graph, expected Link, got something else with id {link}");
-                    continue;
-                };
-                if *active {
-                    links_to_node.insert((&link, &output_port));
-                }
-            }
-        }
-
-        if links_to_node.is_empty() {
-            trace!("Transversing Graph: Node {id}: No Active Links to node");
-            return has_no_input_ports; // Has no input ports, thus is an active client
-        };
-
-        for (_, input_port) in links_to_node {
-            let Some(PWObject::Port { node_id, .. }) = self.get(input_port) else {
-                error!("While transversing graph, expected Port, got something else with id {input_port}");
-                continue;
-            };
-            if !visited.contains(node_id) && self.check_node_active(node_id, visited) {
-                return true;
-            }
-        }
-
-        false
-    }
-}
-
-fn get_node_name(props: &DictRef) -> Option<&str> {
-    props
-        .get(&keys::APP_NAME)
-        .or_else(|| props.get(&keys::NODE_DESCRIPTION))
-        .or_else(|| props.get(&keys::NODE_NICK))
-        .or_else(|| props.get(&keys::NODE_NAME))
-}
-
 fn registry_global_node(
     node: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
@@ -290,11 +51,13 @@ fn registry_global_node(
         .props
         .as_ref()
         .expect("Node object is missing properties");
-    let name = get_node_name(props).unwrap_or("UNDEFINED").to_string();
-    let media_class = props
-        .get(&keys::MEDIA_CLASS)
-        .unwrap_or("UNDEFINED")
-        .to_string();
+    let name = props.get(&keys::NODE_NAME).map(|s| s.to_string());
+    let app_name = props.get(&keys::APP_NAME).map(|s| s.to_string());
+    let description = props.get(&keys::NODE_DESCRIPTION).map(|s| s.to_string());
+    let nick = props.get(&keys::NODE_NICK).map(|s| s.to_string());
+    let media_class = props.get(&keys::MEDIA_CLASS).map(|s| s.to_string());
+    let media_role = props.get(&keys::MEDIA_ROLE).map(|s| s.to_string());
+    let media_software = props.get(&keys::MEDIA_SOFTWARE).map(|s| s.to_string());
 
     let proxy: Node = registry.bind(node).expect("Failed to bind Node Proxy");
     let listener: NodeListener = proxy
@@ -306,13 +69,20 @@ fn registry_global_node(
         })
         .register();
 
-    info!("Event Registry Global Created Node id: {id}\tname: {name}\tmedia class: {media_class}");
-    let mut graph = graph.borrow_mut();
-    graph.insert(
+    //info!("Event Registry Global Created Node id: {id}\tname: {name}\tmedia class: {media_class}");
+    let data = NodeData {
+        name,
+        app_name,
+        description,
+        nick,
+        media_class,
+        media_role,
+        media_software,
+    };
+    graph.borrow_mut().insert(
         id,
         PWObject::Node {
-            name,
-            media_class,
+            data,
             proxy: Proxy { proxy, listener },
         },
     );
@@ -322,59 +92,36 @@ fn registry_global_node(
 
 fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     let id = info.id();
-    let mut graph = graph.borrow_mut();
-
-    let Some(PWObject::Node {
-        name, media_class, ..
-    }) = graph.get(&id)
-    else {
-        error!("'info' event fired for unknown Node with id {id}");
-        return;
-    };
-
-    let name = name.clone();
-    let media_class = media_class.clone();
-
     info!("Event Node Info id:{id}");
+
     let props = info.props().expect("NodeInfo object is missing properties");
+    let name = props.get(&keys::NODE_NAME).map(|s| s.to_string());
+    let app_name = props.get(&keys::APP_NAME).map(|s| s.to_string());
+    let description = props.get(&keys::NODE_DESCRIPTION).map(|s| s.to_string());
+    let nick = props.get(&keys::NODE_NICK).map(|s| s.to_string());
+    let media_class = props.get(&keys::MEDIA_CLASS).map(|s| s.to_string());
+    let media_role = props.get(&keys::MEDIA_ROLE).map(|s| s.to_string());
+    let media_software = props.get(&keys::MEDIA_SOFTWARE).map(|s| s.to_string());
 
-    if let Some(new_name) = get_node_name(props) {
-        if new_name != name {
-            info!("Updated Node id: {id} name: {name} -> {new_name}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Node {
-                    media_class, proxy, ..
-                } => PWObject::Node {
-                    name: new_name.to_string(),
-                    media_class,
-                    proxy,
-                },
-                o => o,
-            });
-        }
+    let new_data = NodeData {
+        name,
+        app_name,
+        description,
+        nick,
+        media_class,
+        media_role,
+        media_software,
     };
-
-    if let Some(new_media_class) = props.get(&keys::MEDIA_CLASS) {
-        if new_media_class != media_class {
-            info!("Updated Node id: {id} media_class: {media_class} -> {new_media_class}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Node { name, proxy, .. } => PWObject::Node {
-                    name,
-                    media_class: new_media_class.to_string(),
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-    update_event.send(()).unwrap();
+    if graph.borrow_mut().update(id, PWObjectData::Node(new_data)) {
+        update_event.send(()).unwrap();
+    }
 }
 
-fn direction_from_string(direction: &str) -> Direction {
+fn direction_from_string(direction: &str) -> Option<Direction> {
     match direction {
-        "out" => Direction::Output,
-        "in" => Direction::Input,
-        _ => panic!("Port direction is invalid"),
+        "out" => Some(Direction::Output),
+        "in" => Some(Direction::Input),
+        _ => None,
     }
 }
 
@@ -390,24 +137,16 @@ fn registry_global_port(
         .props
         .as_ref()
         .expect("Port object is missing properties");
-    let name = props
-        .get(&keys::PORT_NAME)
-        .unwrap_or("UNDEFINED")
-        .to_string();
-    let node_id: Id = props
-        .get(&keys::NODE_ID)
-        .expect("Port properties is missing Node ID")
-        .parse()
-        .expect("Failed to parse Port Node ID");
-    let direction: Direction = direction_from_string(
-        props
-            .get(&keys::PORT_DIRECTION)
-            .expect("Port properties is missing Direction"),
-    );
-    let is_terminal: bool = match props.get(&keys::PORT_TERMINAL) {
-        None => false,
-        Some(terminal) => terminal.parse().expect("Failed to parse Port terminal"),
-    };
+    let name = props.get(&keys::PORT_NAME).map(|s| s.to_string());
+    let node_id: Option<Id> = props.get(&keys::NODE_ID).map(|s| s.parse().ok()).flatten();
+    let direction = props
+        .get(&keys::PORT_DIRECTION)
+        .map(|s| direction_from_string(s))
+        .flatten();
+    let is_terminal: Option<bool> = props
+        .get(&keys::PORT_TERMINAL)
+        .map(|s| s.parse().ok())
+        .flatten();
 
     let proxy: Port = registry.bind(port).expect("Failed to bind Port Proxy");
     let listener: PortListener = proxy
@@ -420,15 +159,17 @@ fn registry_global_port(
         .param(move |_, _param_id, _, _, _param| {}) // TODO
         .register();
 
-    info!("Event Registry Global Created Port ID: {id}\tNode ID: {node_id}\tName: {name}\tDirection: {:?}\tTerminal: {is_terminal}", direction);
-    let mut graph = graph.borrow_mut();
-    graph.insert(
+    //info!("Event Registry Global Created Port ID: {id}\tNode ID: {node_id}\tName: {name}\tDirection: {:?}\tTerminal: {is_terminal}", direction);
+    let data = PortData {
+        name,
+        node_id,
+        direction,
+        is_terminal,
+    };
+    graph.borrow_mut().insert(
         id,
         PWObject::Port {
-            name,
-            node_id,
-            direction,
-            is_terminal,
+            data,
             proxy: Proxy { proxy, listener },
         },
     );
@@ -438,125 +179,29 @@ fn registry_global_port(
 
 fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     let id = info.id();
-    let mut graph = graph.borrow_mut();
+    info!("Event Port Info id:{id}");
 
-    let Some(PWObject::Port {
+    let props = info.props().expect("PortInfo object is missing properties");
+    let name = props.get(&keys::PORT_NAME).map(|s| s.to_string());
+    let node_id: Option<Id> = props.get(&keys::NODE_ID).map(|s| s.parse().ok()).flatten();
+    let direction = props
+        .get(&keys::PORT_DIRECTION)
+        .map(|s| direction_from_string(s))
+        .flatten();
+    let is_terminal: Option<bool> = props
+        .get(&keys::PORT_TERMINAL)
+        .map(|s| s.parse().ok())
+        .flatten();
+
+    let new_data = PortData {
         name,
         node_id,
         direction,
         is_terminal,
-        ..
-    }) = graph.get(&id)
-    else {
-        error!("'info' event fired for unknown Port with id {id}");
-        return;
     };
-
-    let name = name.clone();
-    let node_id = *node_id;
-    let direction = *direction;
-    let is_terminal = *is_terminal;
-
-    info!("Event Port Info id:{id}");
-    let props = info.props().expect("PortInfo object is missing properties");
-
-    if let Some(new_name) = props.get(&keys::PORT_NAME) {
-        if new_name != name {
-            info!("Updated Port id: {id} name: {name} -> {new_name}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Port {
-                    node_id,
-                    direction,
-                    is_terminal,
-                    proxy,
-                    ..
-                } => PWObject::Port {
-                    name: new_name.to_string(),
-                    node_id,
-                    direction,
-                    is_terminal,
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-
-    if let Some(new_node_id) = props.get(&keys::NODE_ID) {
-        let new_node_id: Id = new_node_id.parse().expect("Failed to parse Port Node ID");
-        if new_node_id != node_id {
-            info!("Updated Port id: {id} Node ID: {node_id} -> {new_node_id}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Port {
-                    name,
-                    direction,
-                    is_terminal,
-                    proxy,
-                    ..
-                } => PWObject::Port {
-                    name,
-                    node_id: new_node_id,
-                    direction,
-                    is_terminal,
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-
-    if let Some(new_direction) = props.get(&keys::PORT_DIRECTION) {
-        let new_direction = direction_from_string(new_direction);
-        if new_direction != direction {
-            info!(
-                "Updated Port id: {id} direction: {:?} -> {:?}",
-                direction, new_direction
-            );
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Port {
-                    name,
-                    node_id,
-                    is_terminal,
-                    proxy,
-                    ..
-                } => PWObject::Port {
-                    name,
-                    node_id,
-                    direction: new_direction,
-                    is_terminal,
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-
-    if let Some(new_is_terminal) = props.get(&keys::PORT_TERMINAL) {
-        let new_is_terminal: bool = new_is_terminal
-            .parse()
-            .expect("Failed to parse Port Terminal");
-        if new_is_terminal != is_terminal {
-            info!("Updated Port id: {id} Terminal: {is_terminal} -> {new_is_terminal}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Port {
-                    name,
-                    node_id,
-                    direction,
-                    proxy,
-                    ..
-                } => PWObject::Port {
-                    name,
-                    node_id,
-                    direction,
-                    is_terminal: new_is_terminal,
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-
-    update_event.send(()).unwrap();
+    if graph.borrow_mut().update(id, PWObjectData::Port(new_data)) {
+        update_event.send(()).unwrap();
+    }
 }
 
 fn registry_global_link(
@@ -572,16 +217,15 @@ fn registry_global_link(
         .as_ref()
         .expect("Port object is missing properties");
 
-    let input_port: Id = props
+    let input_port: Option<Id> = props
         .get(&keys::LINK_INPUT_PORT)
-        .expect("Link missing input port property")
-        .parse()
-        .expect("Failed to parse Link input port");
-    let output_port: Id = props
+        .map(|s| s.parse().ok())
+        .flatten();
+    let output_port: Option<Id> = props
         .get(&keys::LINK_OUTPUT_PORT)
-        .expect("Link missing output port property")
-        .parse()
-        .expect("Failed to parse Link output port");
+        .map(|s| s.parse().ok())
+        .flatten();
+    let active = Some(false);
 
     let proxy: Link = registry.bind(link).expect("Failed to bind Link Proxy");
     let listener: LinkListener = proxy
@@ -593,14 +237,16 @@ fn registry_global_link(
         })
         .register();
 
-    info!("Event Registry Global Created Link ID: {id}\tInput Port ID: {input_port}\tOutput Port ID: {output_port}");
-    let mut graph = graph.borrow_mut();
-    graph.insert(
+    //info!("Event Registry Global Created Link ID: {id}\tInput Port ID: {input_port}\tOutput Port ID: {output_port}");
+    let data = LinkData {
+        input_port,
+        output_port,
+        active,
+    };
+    graph.borrow_mut().insert(
         id,
         PWObject::Link {
-            input_port: output_port,
-            output_port: input_port,
-            active: false,
+            data,
             proxy: Proxy { proxy, listener },
         },
     );
@@ -610,96 +256,37 @@ fn registry_global_link(
 
 fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     let id = info.id();
-    let mut graph = graph.borrow_mut();
+    info!("Event Link Info id:{id}");
 
-    let Some(&PWObject::Link {
+    let props = info.props().expect("LinkInfo object is missing properties");
+    let input_port: Option<Id> = props
+        .get(&keys::LINK_INPUT_PORT)
+        .map(|s| s.parse().ok())
+        .flatten();
+    let output_port: Option<Id> = props
+        .get(&keys::LINK_OUTPUT_PORT)
+        .map(|s| s.parse().ok())
+        .flatten();
+
+    let active = if info.change_mask().contains(LinkChangeMask::STATE) {
+        Some(matches!(info.state(), LinkState::Active))
+    } else {
+        None
+    };
+
+    let new_data = LinkData {
         input_port,
         output_port,
         active,
-        ..
-    }) = graph.get(&id)
-    else {
-        error!("'info' event fired for unknown Link with id {id}");
-        return;
     };
-
-    info!("Event Link Info id:{id}");
-    let props = info.props().expect("LinkInfo object is missing properties");
-
-    if let Some(new_input_port) = props.get(&keys::LINK_INPUT_PORT) {
-        let new_input_port: Id = new_input_port
-            .parse()
-            .expect("Failed to parse Link Input Port");
-        if new_input_port != input_port {
-            info!("Updated Link id: {id} Input Port: {input_port} -> {new_input_port}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Link {
-                    output_port,
-                    active,
-                    proxy,
-                    ..
-                } => PWObject::Link {
-                    input_port: new_input_port,
-                    output_port,
-                    active,
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-
-    if let Some(new_output_port) = props.get(&keys::LINK_OUTPUT_PORT) {
-        let new_output_port: Id = new_output_port
-            .parse()
-            .expect("Failed to parse Link Output Port");
-        if new_output_port != output_port {
-            info!("Updated Link id: {id} Output Port: {output_port} -> {new_output_port}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Link {
-                    input_port,
-                    active,
-                    proxy,
-                    ..
-                } => PWObject::Link {
-                    input_port,
-                    output_port: new_output_port,
-                    active,
-                    proxy,
-                },
-                o => o,
-            });
-        }
-    };
-
-    if info.change_mask().contains(LinkChangeMask::STATE) {
-        let new_active = matches!(info.state(), LinkState::Active);
-        if new_active != active {
-            info!("Updated Link id: {id} Active: {active} -> {new_active}");
-            graph.map_object(id, move |obj: PWObject| match obj {
-                PWObject::Link {
-                    input_port,
-                    output_port,
-                    proxy,
-                    ..
-                } => PWObject::Link {
-                    input_port,
-                    output_port,
-                    active: new_active,
-                    proxy,
-                },
-                o => o,
-            });
-        }
+    if graph.borrow_mut().update(id, PWObjectData::Link(new_data)) {
+        update_event.send(()).unwrap();
     }
-
-    update_event.send(()).unwrap();
 }
 
 fn registry_global_remove(id: Id, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<()>) {
     info!("Event Registry Global Remove Object id: {id}");
-    let mut graph = graph.borrow_mut();
-    graph.remove(id);
+    graph.borrow_mut().remove(id);
 
     update_event.send(()).unwrap();
 }
@@ -713,7 +300,6 @@ fn pw_thread(main_sender: mpsc::Sender<()>, pw_receiver: pipewire::channel::Rece
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
     let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
-
 
     let _listener = {
         registry
