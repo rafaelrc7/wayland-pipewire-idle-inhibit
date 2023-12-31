@@ -126,9 +126,7 @@ impl PWThread {
                 pw_sender,
                 pw_thread,
             },
-            PWThreadSignal {
-                main_sender,
-            },
+            PWThreadSignal { main_sender },
         )
     }
 
@@ -154,8 +152,10 @@ fn pw_thread(
     let mainloop = MainLoop::new().expect("Failed to create mainloop.");
 
     let graph = Rc::new(RefCell::new(PWGraph::new()));
-    let idle_state: Arc<Mutex<IdleState>> =
-        Arc::new(Mutex::new(IdleState::new(Duration::seconds(3), main_sender.clone())));
+    let idle_state: Arc<Mutex<IdleState>> = Arc::new(Mutex::new(IdleState::new(
+        Duration::seconds(3),
+        main_sender.clone(),
+    )));
 
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
