@@ -4,7 +4,6 @@ version = "0.1.0"
 authors = ["Rafael Carvalho <contact@rafaelrc.com>"]
 edition = "2021"
 license = "GPL-3.0-only"
-license-file = "LICENCE"
 repository = "https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit"
 readme = "README.md"
 description = "Inhibit wayland idle when computer is playing sound"
