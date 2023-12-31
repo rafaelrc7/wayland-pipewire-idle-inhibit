@@ -1,6 +1,8 @@
 use std::thread;
 
 mod pipewire_connection;
+mod wayland_connection;
+use wayland_connection::WaylandConnection;
 
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
@@ -10,6 +12,7 @@ use signal_hook::{
 fn main() {
     env_logger::init();
 
+    let mut wayland_connection = WaylandConnection::new();
     let (pw_thread, pw_thread_terminate) = pipewire_connection::PWThread::new();
 
     let mut signals =
@@ -20,6 +23,6 @@ fn main() {
         }
     });
 
-    pw_thread.run();
+    pw_thread.run(move |inhibit_idle| wayland_connection.set_inhibit_idle(inhibit_idle));
     signal_thread.join().unwrap();
 }

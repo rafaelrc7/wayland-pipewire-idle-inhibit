@@ -17,13 +17,14 @@ use pipewire::spa::utils::dict::DictRef;
 use pipewire::spa::utils::Direction;
 use pipewire::{keys, node::Node, types::ObjectType};
 
-use log::{debug, error, info, log, trace, warn};
+use log::info;
 
 use timer::{Guard, Timer};
 
 #[derive(Debug)]
 pub enum PWSignal {
     CheckIdleEvent,
+    IdleEvent(bool),
     Terminate,
 }
 
@@ -31,21 +32,19 @@ pub struct IdleState {
     idle_inhibit_timout_callback: Timer,
     idle_inhibit_timout_callback_guard: Option<Guard>,
     idle_inhibit_timout: Duration,
+    main_sender: mpsc::Sender<PWSignal>,
     is_idle_inhibited: Arc<Mutex<bool>>,
 }
 
 impl IdleState {
-    pub fn new(idle_inhibit_timout: Duration) -> Self {
+    pub fn new(idle_inhibit_timout: Duration, main_sender: mpsc::Sender<PWSignal>) -> Self {
         IdleState {
             idle_inhibit_timout_callback: Timer::new(),
             idle_inhibit_timout_callback_guard: None,
             idle_inhibit_timout,
             is_idle_inhibited: Arc::new(Mutex::new(false)),
+            main_sender,
         }
-    }
-
-    pub fn is_idle_inhibited(&self) -> bool {
-        *(self.is_idle_inhibited.lock().unwrap())
     }
 
     pub fn set_idle_inhibited(&mut self, is_idle_inhibited: bool) {
@@ -57,10 +56,12 @@ impl IdleState {
                 self.idle_inhibit_timout_callback
                     .schedule_with_delay(self.idle_inhibit_timout, {
                         let is_idle_inhibited = Arc::clone(&self.is_idle_inhibited);
+                        let main_sender = self.main_sender.clone();
                         move || {
                             let mut is_idle_inhibited = is_idle_inhibited.lock().unwrap();
                             *is_idle_inhibited = true;
                             info!(target: "IdleState", "Idling inhibiting is ENABLED");
+                            main_sender.send(PWSignal::IdleEvent(true)).unwrap();
                         }
                     }),
             );
@@ -71,6 +72,7 @@ impl IdleState {
             let is_idle_inhibited_ref = self.is_idle_inhibited.lock();
             *is_idle_inhibited_ref.unwrap() = false;
             info!(target: "IdleState", "Idling inhibiting is DISABLED");
+            self.main_sender.send(PWSignal::IdleEvent(false)).unwrap();
         }
     }
 }
@@ -86,7 +88,6 @@ impl PWThreadSignal {
 }
 
 pub struct PWThread {
-    main_sender: mpsc::Sender<PWSignal>,
     main_receiver: mpsc::Receiver<PWSignal>,
     pw_sender: pipewire::channel::Sender<PWSignal>,
     pw_thread: JoinHandle<()>,
@@ -102,25 +103,24 @@ impl PWThread {
             move || pw_thread(main_sender, pw_receiver)
         });
 
-        let _main_sender = main_sender.clone();
         (
             PWThread {
-                main_sender,
                 main_receiver,
                 pw_sender,
                 pw_thread,
             },
             PWThreadSignal {
-                main_sender: _main_sender,
+                main_sender,
             },
         )
     }
 
-    pub fn run(self) {
+    pub fn run<F: FnMut(bool)>(self, mut on_idle: F) {
         loop {
             match self.main_receiver.recv().unwrap() {
                 PWSignal::CheckIdleEvent => self.pw_sender.send(PWSignal::CheckIdleEvent).unwrap(),
                 PWSignal::Terminate => break,
+                PWSignal::IdleEvent(inhibit_idle) => on_idle(inhibit_idle),
             };
         }
 
@@ -138,7 +138,7 @@ fn pw_thread(
 
     let graph = Rc::new(RefCell::new(PWGraph::new()));
     let idle_state: Arc<Mutex<IdleState>> =
-        Arc::new(Mutex::new(IdleState::new(Duration::seconds(3))));
+        Arc::new(Mutex::new(IdleState::new(Duration::seconds(3), main_sender.clone())));
 
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
@@ -195,6 +195,7 @@ fn pw_thread(
                 let mut idle_state = idle_state.lock().expect("Failed to lock Idle State");
                 idle_state.set_idle_inhibited(!graph.get_active_sinks().is_empty());
             }
+            PWSignal::IdleEvent(_) => {}
         }
     });
 

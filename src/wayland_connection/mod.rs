@@ -14,11 +14,11 @@ use wayland_protocols::wp::idle_inhibit::zv1::client::{
 use log::{info, warn};
 
 pub struct WaylandConnection {
-    connection: Connection,
-    display: WlDisplay,
+    _connection: Connection,
+    _display: WlDisplay,
     event_queue: EventQueue<AppData>,
     qhandle: QueueHandle<AppData>,
-    registry: WlRegistry,
+    _registry: WlRegistry,
     data: AppData,
 }
 
@@ -31,11 +31,11 @@ impl WaylandConnection {
         let registry = display.get_registry(&qhandle, ());
 
         let mut obj = Self {
-            connection,
-            display,
+            _connection: connection,
+            _display: display,
             event_queue,
             qhandle,
-            registry,
+            _registry: registry,
             data: AppData::default(),
         };
         obj.roundtrip();
@@ -62,12 +62,14 @@ impl WaylandConnection {
                 self.data._idle_inhibitor =
                     Some(idle_manager.create_inhibitor(&surface, &self.qhandle, ()));
                 self.roundtrip();
+                info!(target: "WaylandConnection::set_inhibit_idle", "Idle Inhibitor was ENABLED");
             }
         } else {
             if let Some(indle_inhibitor) = &self.data._idle_inhibitor {
                 indle_inhibitor.destroy();
                 self.data._idle_inhibitor = None;
                 self.roundtrip();
+                info!(target: "WaylandConnection::set_inhibit_idle", "Idle Inhibitor was DISABLED");
             }
         }
     }
