@@ -15,5 +15,8 @@ pipewire = { git = "https://gitlab.freedesktop.org/pipewire/pipewire-rs" }
 log = "0.4"
 env_logger = "0.10"
 timer = "0.2"
+chrono = "0.4"
 signal-hook = "0.3"
+wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
+wayland-client = "0.31"
 
