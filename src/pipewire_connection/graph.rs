@@ -22,7 +22,7 @@ use pipewire::{
     node::{Node, NodeListener},
     port::{Port, PortListener},
     proxy::{Listener, ProxyT},
-    spa::utils::Direction,
+    spa::Direction,
 };
 
 use log::{info, trace, warn};

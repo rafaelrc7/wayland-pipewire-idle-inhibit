@@ -27,16 +27,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "annotate-snippets"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ccaf7e9dfbb6ab22c82e473cd1a8a7bd313c19a5b7e40970f3d89ef5a5c9e81e"
-dependencies = [
- "unicode-width",
- "yansi-term",
-]
-
-[[package]]
 name = "anyhow"
 version = "1.0.76"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -50,11 +40,10 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
 name = "bindgen"
-version = "0.68.1"
+version = "0.66.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "726e4313eb6ec35d2730258ad4e15b547ee75d6afaa1361a922e78e59b7d8078"
+checksum = "f2b84e06fc203107bfbad243f4aba2af864eb7db3b1cf46ea0a023b0b433d2a7"
 dependencies = [
- "annotate-snippets",
  "bitflags 2.4.1",
  "cexpr",
  "clang-sys",
@@ -325,7 +314,8 @@ dependencies = [
 [[package]]
 name = "libspa"
 version = "0.7.2"
-source = "git+https://gitlab.freedesktop.org/pipewire/pipewire-rs#26838bc2b236691c28f35b135045e36c85843232"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0434617020ddca18b86067912970c55410ca654cdafd775480322f50b857a8c4"
 dependencies = [
  "bitflags 2.4.1",
  "cc",
@@ -341,7 +331,8 @@ dependencies = [
 [[package]]
 name = "libspa-sys"
 version = "0.7.2"
-source = "git+https://gitlab.freedesktop.org/pipewire/pipewire-rs#26838bc2b236691c28f35b135045e36c85843232"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3e70ca3f3e70f858ef363046d06178c427b4e0b63d210c95fd87d752679d345"
 dependencies = [
  "bindgen",
  "cc",
@@ -434,7 +425,8 @@ checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 [[package]]
 name = "pipewire"
 version = "0.7.2"
-source = "git+https://gitlab.freedesktop.org/pipewire/pipewire-rs#26838bc2b236691c28f35b135045e36c85843232"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a2d009c8dd65e890b515a71950f7e4c801523b8894ff33863a40830bf762e9e9"
 dependencies = [
  "anyhow",
  "bitflags 2.4.1",
@@ -450,7 +442,8 @@ dependencies = [
 [[package]]
 name = "pipewire-sys"
 version = "0.7.2"
-source = "git+https://gitlab.freedesktop.org/pipewire/pipewire-rs#26838bc2b236691c28f35b135045e36c85843232"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "890c084e7b737246cb4799c86b71a0e4da536031ff7473dd639eba9f95039f64"
 dependencies = [
  "bindgen",
  "libspa-sys",
@@ -717,12 +710,6 @@ name = "unicode-segmentation"
 version = "1.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
-
-[[package]]
-name = "unicode-width"
-version = "0.1.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e51733f11c9c4f72aa0c160008246859e340b00807569a0da0e7a1079b27ba85"
 
 [[package]]
 name = "version-compare"
@@ -1037,13 +1024,4 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9b5c3db89721d50d0e2a673f5043fc4722f76dcc352d7b1ab8b8288bed4ed2c5"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "yansi-term"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe5c30ade05e61656247b2e334a031dfd0cc466fadef865bdcdea8d537951bf1"
-dependencies = [
- "winapi",
 ]

@@ -24,15 +24,17 @@ pub mod graph;
 use chrono::Duration;
 use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy};
 
-use pipewire::context::Context;
-use pipewire::link::{Link, LinkChangeMask, LinkInfo, LinkListener, LinkState};
-use pipewire::main_loop::MainLoop;
-use pipewire::node::{NodeInfo, NodeListener};
-use pipewire::port::{Port, PortInfo, PortListener};
-use pipewire::registry::{GlobalObject, Registry};
-use pipewire::spa::utils::dict::DictRef;
-use pipewire::spa::utils::Direction;
-use pipewire::{keys, node::Node, types::ObjectType};
+use pipewire::{
+    keys,
+    link::{Link, LinkChangeMask, LinkInfo, LinkListener, LinkState},
+    node::{Node, NodeInfo, NodeListener},
+    port::{Port, PortInfo, PortListener},
+    prelude::ReadableDict,
+    registry::{GlobalObject, Registry},
+    spa::{Direction, ForeignDict},
+    types::ObjectType,
+    Context, MainLoop,
+};
 
 use log::info;
 
@@ -220,7 +222,7 @@ fn pw_thread(
 }
 
 fn registry_global_node(
-    node: &GlobalObject<&DictRef>,
+    node: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
     update_event: mpsc::Sender<PWSignal>,
@@ -304,7 +306,7 @@ fn direction_from_string(direction: &str) -> Option<Direction> {
 }
 
 fn registry_global_port(
-    port: &GlobalObject<&DictRef>,
+    port: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
     update_event: mpsc::Sender<PWSignal>,
@@ -382,7 +384,7 @@ fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
 }
 
 fn registry_global_link(
-    link: &GlobalObject<&DictRef>,
+    link: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
     update_event: mpsc::Sender<PWSignal>,
