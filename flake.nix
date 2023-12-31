@@ -1,5 +1,5 @@
 {
-  description = "Roman numerals grammar";
+  description = "Inhibit Wayland idling when audio is played through PipeWire";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -9,7 +9,8 @@
   outputs = { self, nixpkgs, flake-utils }: flake-utils.lib.eachDefaultSystem (system:
     let pkgs = import nixpkgs { inherit system; };
     in {
-      devShell = import ./shell.nix { inherit pkgs; };
+      devShell       = import           ./shell.nix   { inherit pkgs; };
+      defaultPackage = pkgs.callPackage ./default.nix { };
     }
   );
 }

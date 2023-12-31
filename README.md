@@ -17,6 +17,11 @@ This is the first usable version of the project. You just need to run the built 
 - [ ] Software whitelist.
 
 ## Building
+### Nix
+``
+nix build
+``
+### Cargo
 ``
 cargo build
 ``
