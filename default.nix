@@ -15,12 +15,14 @@ in rustPlatform.buildRustPackage rec {
   src = lib.cleanSource ./.;
 
   nativeBuildInputs = [
-    pkg-config clang
+    clang
+    pkg-config
   ];
 
   buildInputs = [
     pipewire
-    wayland wayland-protocols
+    wayland
+    wayland-protocols
   ];
 
   LIBCLANG_PATH = "${libclang.lib}/lib";

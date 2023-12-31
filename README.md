@@ -8,6 +8,7 @@ Depends on the experimental protocol
 and [PipeWire](https://www.pipewire.org/).
 
 ## Roadmap
+
 This is the first usable version of the project. You just need to run the built program. However, many improvements are planned for the short futures such as:
 
 - [ ] Refactoring of the PipeWire connection code.
@@ -17,25 +18,27 @@ This is the first usable version of the project. You just need to run the built 
 - [ ] Software whitelist.
 
 ## Building
+
 ### Nix
-``
-nix build
-``
+
+`nix build`
+
 ### Cargo
-``
-cargo build
-``
+
+`cargo build`
 
 ## Thanks
+
 This project was inspired by
+
 - [SwayAudioIdleInhibit](https://github.com/ErikReider/SwayAudioIdleInhibit)
 - [Helvum](https://gitlab.freedesktop.org/pipewire/helvum)
 
 ## Licence and Credits
+
 This project is licensed under the terms of the GPL3 licence. See [LICENCE](LICENCE) for
 more information.
 
 Parts of the code of the PipeWire connection were greatly inspired by
 [Helvum](https://gitlab.freedesktop.org/pipewire/helvum), which is also
 licensed under the terms of the GPL3 licence.
-

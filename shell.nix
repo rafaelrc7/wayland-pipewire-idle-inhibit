@@ -1,9 +1,16 @@
 { pkgs ? import <nixpkgs> { }, ... }:
 pkgs.mkShell {
   packages = with pkgs; [
-    cargo rustc clang pkg-config rustfmt
+    cargo
+    clang
+    gdb
     pipewire
-    gdb valgrind
+    pkg-config
+    rustc
+    rustfmt
+    valgrind
+    wayland
+    wayland-protocols
   ];
 
   LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
