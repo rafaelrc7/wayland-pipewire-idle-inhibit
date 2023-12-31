@@ -3,15 +3,37 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    flake-parts.url = "github:hercules-ci/flake-parts";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
   };
 
-  outputs = { self, nixpkgs, flake-utils }: flake-utils.lib.eachDefaultSystem (system:
-    let pkgs = import nixpkgs { inherit system; };
-    in {
-      devShell       = import           ./shell.nix   { inherit pkgs; };
-      defaultPackage = pkgs.callPackage ./default.nix { };
-    }
-  );
+  outputs = inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      imports = [
+        inputs.treefmt-nix.flakeModule
+        inputs.flake-parts.flakeModules.easyOverlay
+      ];
+      systems = [ "x86_64-linux" ];
+      perSystem = { config, pkgs, ... }: {
+        devShells.default = import ./shell.nix { inherit pkgs; };
+
+        packages.wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
+        packages.default = config.packages.wayland-pipewire-idle-inhibit;
+
+        overlayAttrs = {
+          inherit (config.packages) wayland-pipewire-idle-inhibit;
+        };
+
+        treefmt.config = {
+          projectRootFile = "flake.nix";
+          programs = {
+            rustfmt.enable = true;
+            nixpkgs-fmt.enable = true;
+            taplo.enable = true;
+            prettier.enable = true;
+          };
+        };
+      };
+    };
 }
 
