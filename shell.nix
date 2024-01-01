@@ -3,6 +3,7 @@ pkgs.mkShell {
   packages = with pkgs; [
     cargo
     clang
+    clippy
     gdb
     pipewire
     pkg-config
