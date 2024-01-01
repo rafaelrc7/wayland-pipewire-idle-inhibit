@@ -259,9 +259,7 @@ fn registry_global_port<Msg: From<PWEvent> + 'static>(
     let direction = props
         .get(&keys::PORT_DIRECTION)
         .and_then(direction_from_string);
-    let is_terminal: Option<bool> = props
-        .get(&keys::PORT_TERMINAL)
-        .and_then(|s| s.parse().ok());
+    let is_terminal: Option<bool> = props.get(&keys::PORT_TERMINAL).and_then(|s| s.parse().ok());
 
     let proxy: Port = registry.bind(port).expect("Failed to bind Port Proxy");
     let listener: PortListener = proxy
@@ -307,9 +305,7 @@ fn port_info<Msg: From<PWEvent>>(
     let direction = props
         .get(&keys::PORT_DIRECTION)
         .and_then(direction_from_string);
-    let is_terminal: Option<bool> = props
-        .get(&keys::PORT_TERMINAL)
-        .and_then(|s| s.parse().ok());
+    let is_terminal: Option<bool> = props.get(&keys::PORT_TERMINAL).and_then(|s| s.parse().ok());
 
     let new_data = PortData {
         name,
