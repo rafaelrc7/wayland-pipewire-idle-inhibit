@@ -14,7 +14,7 @@ This is the first usable version of the project. You just need to run the built 
 - [x] Refactoring of the PipeWire connection code.
 - [ ] Configuration File.
 - [ ] Sink Selection.
-- [ ] Customisation of the minimum audio duration to trigger idle inhibition.
+- [x] Customisation of the minimum audio duration to trigger idle inhibition.
 - [ ] Software whitelist.
 
 ## Building

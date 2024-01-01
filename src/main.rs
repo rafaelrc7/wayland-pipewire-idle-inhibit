@@ -17,8 +17,14 @@
 
 use std::{sync::mpsc, thread};
 
+use signal_hook::{
+    consts::{SIGINT, SIGQUIT, SIGTERM},
+    iterator::Signals,
+};
+
+use clap::Parser;
+
 mod inhibit_idle_state;
-use chrono::Duration;
 use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
 
 mod pipewire_connection;
@@ -27,10 +33,7 @@ use pipewire_connection::{PWEvent, PWMsg, PWThread};
 mod wayland_idle_inhibitor;
 use wayland_idle_inhibitor::WaylandIdleInhibitor;
 
-use signal_hook::{
-    consts::{SIGINT, SIGQUIT, SIGTERM},
-    iterator::Signals,
-};
+mod args;
 
 #[derive(Debug)]
 enum Msg {
@@ -62,7 +65,11 @@ impl From<InhibitIdleStateEvent> for Msg {
 }
 
 fn main() {
-    env_logger::init();
+    let args = args::Args::parse();
+
+    env_logger::Builder::new()
+        .filter_level(args.get_log_level())
+        .init();
 
     let (event_queue_sender, event_queue) = mpsc::channel::<Msg>();
 
@@ -80,7 +87,7 @@ fn main() {
     let pw_thread = PWThread::new(event_queue_sender.clone());
     let mut wayland_idle_inhibitor = WaylandIdleInhibitor::new();
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
-        InhibitIdleState::new(Some(Duration::seconds(5)), event_queue_sender);
+        InhibitIdleState::new(args.get_media_minimun_duration(), event_queue_sender);
 
     loop {
         match event_queue.recv().unwrap() {
