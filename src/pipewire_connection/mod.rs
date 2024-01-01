@@ -1,4 +1,4 @@
-// Copyright (C) 2023  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2023-2024  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,14 +15,14 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::{mpsc, Arc, Mutex};
-use std::thread::{self, JoinHandle};
-
-pub mod graph;
-use chrono::Duration;
-use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy};
+use std::{
+    any::Any,
+    cell::RefCell,
+    marker::Send,
+    rc::Rc,
+    sync::mpsc,
+    thread::{self, JoinHandle},
+};
 
 use pipewire::{
     keys,
@@ -36,128 +36,61 @@ use pipewire::{
     Context, MainLoop,
 };
 
-use log::info;
+use log::debug;
 
-use timer::{Guard, Timer};
+pub mod graph;
+use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy};
 
 #[derive(Debug)]
-pub enum PWSignal {
-    CheckIdleEvent,
-    IdleEvent(bool),
+pub enum PWMsg {
     Terminate,
+    GraphUpdated,
 }
 
-pub struct IdleState {
-    idle_inhibit_timout_callback: Timer,
-    idle_inhibit_timout_callback_guard: Option<Guard>,
-    idle_inhibit_timout: Duration,
-    main_sender: mpsc::Sender<PWSignal>,
-    is_idle_inhibited: Arc<Mutex<bool>>,
-}
-
-impl IdleState {
-    pub fn new(idle_inhibit_timout: Duration, main_sender: mpsc::Sender<PWSignal>) -> Self {
-        IdleState {
-            idle_inhibit_timout_callback: Timer::new(),
-            idle_inhibit_timout_callback_guard: None,
-            idle_inhibit_timout,
-            is_idle_inhibited: Arc::new(Mutex::new(false)),
-            main_sender,
-        }
-    }
-
-    pub fn set_idle_inhibited(&mut self, is_idle_inhibited: bool) {
-        if is_idle_inhibited {
-            if self.idle_inhibit_timout_callback_guard.is_some() {
-                return;
-            }
-            self.idle_inhibit_timout_callback_guard = Some(
-                self.idle_inhibit_timout_callback
-                    .schedule_with_delay(self.idle_inhibit_timout, {
-                        let is_idle_inhibited = Arc::clone(&self.is_idle_inhibited);
-                        let main_sender = self.main_sender.clone();
-                        move || {
-                            let mut is_idle_inhibited = is_idle_inhibited.lock().unwrap();
-                            *is_idle_inhibited = true;
-                            info!(target: "IdleState", "Idling inhibiting is ENABLED");
-                            main_sender.send(PWSignal::IdleEvent(true)).unwrap();
-                        }
-                    }),
-            );
-        } else {
-            if self.idle_inhibit_timout_callback_guard.is_some() {
-                self.idle_inhibit_timout_callback_guard = None
-            }
-            let is_idle_inhibited_ref = self.is_idle_inhibited.lock();
-            *is_idle_inhibited_ref.unwrap() = false;
-            info!(target: "IdleState", "Idling inhibiting is DISABLED");
-            self.main_sender.send(PWSignal::IdleEvent(false)).unwrap();
-        }
-    }
-}
-
-pub struct PWThreadSignal {
-    main_sender: mpsc::Sender<PWSignal>,
-}
-
-impl PWThreadSignal {
-    pub fn send(&self) {
-        self.main_sender.send(PWSignal::Terminate).unwrap();
-    }
+#[derive(Debug)]
+pub enum PWEvent {
+    GraphUpdated,
+    InhibitIdleState(bool),
 }
 
 pub struct PWThread {
-    main_receiver: mpsc::Receiver<PWSignal>,
-    pw_sender: pipewire::channel::Sender<PWSignal>,
     pw_thread: JoinHandle<()>,
+    pw_event_sender: pipewire::channel::Sender<PWMsg>,
 }
 
 impl PWThread {
-    pub fn new() -> (Self, PWThreadSignal) {
-        let (main_sender, main_receiver) = mpsc::channel();
-        let (pw_sender, pw_receiver) = pipewire::channel::channel();
+    pub fn new<Msg: From<PWEvent> + Send + 'static>(pw_event_listener: mpsc::Sender<Msg>) -> Self {
+        let (pw_event_sender, pw_event_queue) = pipewire::channel::channel();
 
         let pw_thread = thread::spawn({
-            let main_sender = main_sender.clone();
-            move || pw_thread(main_sender, pw_receiver)
+            let pw_event_listener = pw_event_listener.clone();
+            move || pw_thread(pw_event_listener, pw_event_queue)
         });
 
-        (
-            PWThread {
-                main_receiver,
-                pw_sender,
-                pw_thread,
-            },
-            PWThreadSignal { main_sender },
-        )
+        PWThread {
+            pw_thread,
+            pw_event_sender,
+        }
     }
 
-    pub fn run<F: FnMut(bool)>(self, mut on_idle: F) {
-        loop {
-            match self.main_receiver.recv().unwrap() {
-                PWSignal::CheckIdleEvent => self.pw_sender.send(PWSignal::CheckIdleEvent).unwrap(),
-                PWSignal::Terminate => break,
-                PWSignal::IdleEvent(inhibit_idle) => on_idle(inhibit_idle),
-            };
-        }
+    pub fn join(self) -> Result<(), Box<dyn Any + Send>> {
+        let PWThread { pw_thread, .. } = self;
+        pw_thread.join()
+    }
 
-        self.pw_sender.send(PWSignal::Terminate).unwrap();
-        self.pw_thread.join().unwrap();
+    pub fn send(&self, msg: PWMsg) -> Result<(), PWMsg> {
+        self.pw_event_sender.send(msg)
     }
 }
 
-fn pw_thread(
-    main_sender: mpsc::Sender<PWSignal>,
-    pw_receiver: pipewire::channel::Receiver<PWSignal>,
+fn pw_thread<Msg: From<PWEvent> + 'static>(
+    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_queue: pipewire::channel::Receiver<PWMsg>,
 ) {
     pipewire::init();
     let mainloop = MainLoop::new().expect("Failed to create mainloop.");
 
     let graph = Rc::new(RefCell::new(PWGraph::new()));
-    let idle_state: Arc<Mutex<IdleState>> = Arc::new(Mutex::new(IdleState::new(
-        Duration::seconds(3),
-        main_sender.clone(),
-    )));
 
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
@@ -169,7 +102,7 @@ fn pw_thread(
             .global({
                 let registry = Rc::clone(&registry);
                 let graph = Rc::clone(&graph);
-                let main_sender = main_sender.clone();
+                let pw_event_listener = pw_event_listener.clone();
 
                 move |global| {
                     let registry = Rc::clone(&registry);
@@ -177,13 +110,13 @@ fn pw_thread(
 
                     match global.type_ {
                         ObjectType::Node => {
-                            registry_global_node(global, registry, graph, main_sender.clone())
+                            registry_global_node(global, registry, graph, pw_event_listener.clone())
                         }
                         ObjectType::Port => {
-                            registry_global_port(global, registry, graph, main_sender.clone())
+                            registry_global_port(global, registry, graph, pw_event_listener.clone())
                         }
                         ObjectType::Link => {
-                            registry_global_link(global, registry, graph, main_sender.clone())
+                            registry_global_link(global, registry, graph, pw_event_listener.clone())
                         }
                         _ => {}
                     }
@@ -191,41 +124,37 @@ fn pw_thread(
             })
             .global_remove({
                 let graph = Rc::clone(&graph);
-                let main_sender = main_sender.clone();
+                let pw_event_listener = pw_event_listener.clone();
 
                 move |id| {
-                    registry_global_remove(id, Rc::clone(&graph), main_sender.clone());
+                    registry_global_remove(id, Rc::clone(&graph), pw_event_listener.clone());
                 }
             })
             .register()
     };
 
-    let _receiver = pw_receiver.attach(&mainloop, {
+    let _receiver = pw_event_queue.attach(&mainloop, {
         let mainloop = mainloop.clone();
 
-        move |signal: PWSignal| match signal {
-            PWSignal::Terminate => {
-                mainloop.quit();
+        move |signal: PWMsg| match signal {
+            PWMsg::Terminate => mainloop.quit(),
+            PWMsg::GraphUpdated => {
+                let should_inhibit_idle = !graph.borrow_mut().get_active_sinks().is_empty();
+                pw_event_listener
+                    .send(Msg::from(PWEvent::InhibitIdleState(should_inhibit_idle)))
+                    .unwrap();
             }
-            PWSignal::CheckIdleEvent => {
-                // _check_idle_event.signal();
-
-                let graph = graph.borrow_mut();
-                let mut idle_state = idle_state.lock().expect("Failed to lock Idle State");
-                idle_state.set_idle_inhibited(!graph.get_active_sinks().is_empty());
-            }
-            PWSignal::IdleEvent(_) => {}
         }
     });
 
     mainloop.run();
 }
 
-fn registry_global_node(
+fn registry_global_node<Msg: From<PWEvent> + 'static>(
     node: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<PWSignal>,
+    pw_event_listener: mpsc::Sender<Msg>,
 ) {
     let id = node.id;
     let props = node
@@ -245,8 +174,8 @@ fn registry_global_node(
         .add_listener_local()
         .info({
             let graph = Rc::clone(&graph);
-            let update_event = update_event.clone();
-            move |info| node_info(info, Rc::clone(&graph), update_event.clone())
+            let pw_event_listener = pw_event_listener.clone();
+            move |info| node_info(info, Rc::clone(&graph), pw_event_listener.clone())
         })
         .register();
 
@@ -267,12 +196,18 @@ fn registry_global_node(
         },
     );
 
-    update_event.send(PWSignal::CheckIdleEvent).unwrap();
+    pw_event_listener
+        .send(Msg::from(PWEvent::GraphUpdated))
+        .unwrap();
 }
 
-fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
+fn node_info<Msg: From<PWEvent>>(
+    info: &NodeInfo,
+    graph: Rc<RefCell<PWGraph>>,
+    pw_event_listener: mpsc::Sender<Msg>,
+) {
     let id = info.id();
-    info!("Event Node Info id:{id}");
+    debug!("Event Node Info id:{id}");
 
     let props = info.props().expect("NodeInfo object is missing properties");
     let name = props.get(&keys::NODE_NAME).map(|s| s.to_string());
@@ -293,7 +228,9 @@ fn node_info(info: &NodeInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
         media_software,
     };
     if graph.borrow_mut().update(id, PWObjectData::Node(new_data)) {
-        update_event.send(PWSignal::CheckIdleEvent).unwrap();
+        pw_event_listener
+            .send(Msg::from(PWEvent::GraphUpdated))
+            .unwrap();
     }
 }
 
@@ -305,11 +242,11 @@ fn direction_from_string(direction: &str) -> Option<Direction> {
     }
 }
 
-fn registry_global_port(
+fn registry_global_port<Msg: From<PWEvent> + 'static>(
     port: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<PWSignal>,
+    pw_event_listener: mpsc::Sender<Msg>,
 ) {
     let id = port.id;
 
@@ -333,8 +270,8 @@ fn registry_global_port(
         .add_listener_local()
         .info({
             let graph = Rc::clone(&graph);
-            let update_event = update_event.clone();
-            move |info| port_info(info, Rc::clone(&graph), update_event.clone())
+            let pw_event_listener = pw_event_listener.clone();
+            move |info| port_info(info, Rc::clone(&graph), pw_event_listener.clone())
         })
         .param(move |_, _param_id, _, _, _param| {}) // TODO
         .register();
@@ -353,12 +290,18 @@ fn registry_global_port(
         },
     );
 
-    update_event.send(PWSignal::CheckIdleEvent).unwrap();
+    pw_event_listener
+        .send(Msg::from(PWEvent::GraphUpdated))
+        .unwrap();
 }
 
-fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
+fn port_info<Msg: From<PWEvent>>(
+    info: &PortInfo,
+    graph: Rc<RefCell<PWGraph>>,
+    pw_event_listener: mpsc::Sender<Msg>,
+) {
     let id = info.id();
-    info!("Event Port Info id:{id}");
+    debug!("Event Port Info id:{id}");
 
     let props = info.props().expect("PortInfo object is missing properties");
     let name = props.get(&keys::PORT_NAME).map(|s| s.to_string());
@@ -379,15 +322,17 @@ fn port_info(info: &PortInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
         is_terminal,
     };
     if graph.borrow_mut().update(id, PWObjectData::Port(new_data)) {
-        update_event.send(PWSignal::CheckIdleEvent).unwrap();
+        pw_event_listener
+            .send(Msg::from(PWEvent::GraphUpdated))
+            .unwrap();
     }
 }
 
-fn registry_global_link(
+fn registry_global_link<Msg: From<PWEvent> + 'static>(
     link: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<PWSignal>,
+    pw_event_listener: mpsc::Sender<Msg>,
 ) {
     let id = link.id;
 
@@ -411,8 +356,8 @@ fn registry_global_link(
         .add_listener_local()
         .info({
             let graph = Rc::clone(&graph);
-            let update_event = update_event.clone();
-            move |info| link_info(info, Rc::clone(&graph), update_event.clone())
+            let pw_event_listener = pw_event_listener.clone();
+            move |info| link_info(info, Rc::clone(&graph), pw_event_listener.clone())
         })
         .register();
 
@@ -429,12 +374,18 @@ fn registry_global_link(
         },
     );
 
-    update_event.send(PWSignal::CheckIdleEvent).unwrap();
+    pw_event_listener
+        .send(Msg::from(PWEvent::GraphUpdated))
+        .unwrap();
 }
 
-fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::Sender<PWSignal>) {
+fn link_info<Msg: From<PWEvent>>(
+    info: &LinkInfo,
+    graph: Rc<RefCell<PWGraph>>,
+    pw_event_listener: mpsc::Sender<Msg>,
+) {
     let id = info.id();
-    info!("Event Link Info id:{id}");
+    debug!("Event Link Info id:{id}");
 
     let props = info.props().expect("LinkInfo object is missing properties");
     let input_port: Option<Id> = props
@@ -458,17 +409,21 @@ fn link_info(info: &LinkInfo, graph: Rc<RefCell<PWGraph>>, update_event: mpsc::S
         active,
     };
     if graph.borrow_mut().update(id, PWObjectData::Link(new_data)) {
-        update_event.send(PWSignal::CheckIdleEvent).unwrap();
+        pw_event_listener
+            .send(Msg::from(PWEvent::GraphUpdated))
+            .unwrap();
     }
 }
 
-fn registry_global_remove(
+fn registry_global_remove<Msg: From<PWEvent>>(
     id: Id,
     graph: Rc<RefCell<PWGraph>>,
-    update_event: mpsc::Sender<PWSignal>,
+    pw_event_listener: mpsc::Sender<Msg>,
 ) {
-    info!("Event Registry Global Remove Object id: {id}");
+    debug!("Event Registry Global Remove Object id: {id}");
     graph.borrow_mut().remove(id);
 
-    update_event.send(PWSignal::CheckIdleEvent).unwrap();
+    pw_event_listener
+        .send(Msg::from(PWEvent::GraphUpdated))
+        .unwrap();
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2023  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2023-2024  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ use pipewire::{
     spa::Direction,
 };
 
-use log::{info, trace, warn};
+use log::{debug, trace, warn};
 
 pub type Id = u32;
 
@@ -269,7 +269,7 @@ impl PWGraph {
                 let NodeData {
                     ref media_class, ..
                 } = data;
-                info!(target: "PWGraph::insert", "Node ({id}) '{}'", data.get_name());
+                debug!(target: "PWGraph::insert", "Node ({id}) '{}'", data.get_name());
                 if let Some(media_class) = media_class {
                     if media_class.contains("Sink") {
                         self.sinks.insert(id);
@@ -280,15 +280,15 @@ impl PWGraph {
                 let PortData {
                     node_id, direction, ..
                 } = data;
-                info!(target: "PWGraph::insert", "Port ({id})");
+                debug!(target: "PWGraph::insert", "Port ({id})");
                 if let (Some(node_id), Some(direction)) = (node_id, direction) {
                     match *direction {
                         Direction::Input => {
-                            info!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input");
+                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input");
                             self.get_node_input_ports(&node_id).insert(id);
                         }
                         Direction::Output => {
-                            info!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output");
+                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output");
                             self.get_node_output_ports(&node_id).insert(id);
                         }
                         _ => {}
@@ -302,15 +302,15 @@ impl PWGraph {
                     ..
                 } = data;
 
-                info!(target: "PWGraph::insert", "Link ({id})");
+                debug!(target: "PWGraph::insert", "Link ({id})");
 
                 if let Some(output_port) = output_port {
-                    info!(target: "PWGraph::insert", "Link ({id}) with output_port {output_port}");
+                    debug!(target: "PWGraph::insert", "Link ({id}) with output_port {output_port}");
                     self.get_links_from_port(&output_port).insert(id);
                 };
 
                 if let Some(input_port) = input_port {
-                    info!(target: "PWGraph::insert", "Link ({id}) with input_port {input_port}");
+                    debug!(target: "PWGraph::insert", "Link ({id}) with input_port {input_port}");
                     self.get_links_to_port(&input_port).insert(id);
                 };
             }
@@ -383,7 +383,7 @@ impl PWGraph {
                 }
 
                 let new_data = NodeData::join(old_data.clone(), new_data);
-                info!(target: "PWGraph::update", "Updated Node ({id}) {:?} -> {:?}", old_data, new_data);
+                debug!(target: "PWGraph::update", "Updated Node ({id}) {:?} -> {:?}", old_data, new_data);
                 self.objects.insert(
                     id,
                     PWObject::Node {
@@ -454,7 +454,7 @@ impl PWGraph {
                 }
 
                 let new_data = PortData::join(old_data.clone(), new_data);
-                info!(target: "PWGraph::update", "Updated Port ({id}) {:?} -> {:?}", old_data, new_data);
+                debug!(target: "PWGraph::update", "Updated Port ({id}) {:?} -> {:?}", old_data, new_data);
                 self.objects.insert(
                     id,
                     PWObject::Port {
@@ -516,7 +516,7 @@ impl PWGraph {
                 }
 
                 let new_data = LinkData::join(old_data.clone(), new_data);
-                info!(target: "PWGraph::update", "Updated Link ({id}) {:?} -> {:?}", old_data, new_data);
+                debug!(target: "PWGraph::update", "Updated Link ({id}) {:?} -> {:?}", old_data, new_data);
                 self.objects.insert(
                     id,
                     PWObject::Link {
@@ -542,7 +542,7 @@ impl PWGraph {
                         self.sinks.remove(&id);
                     }
                 }
-                info!(target: "PWGraph::remove", "Removed Node ({id})");
+                debug!(target: "PWGraph::remove", "Removed Node ({id})");
             }
             Some(PWObject::Port { ref data, .. }) => {
                 let PortData {
@@ -559,7 +559,7 @@ impl PWGraph {
                         _ => {}
                     };
                 }
-                info!(target: "PWGraph::remove", "Removed Port ({id})");
+                debug!(target: "PWGraph::remove", "Removed Port ({id})");
             }
             Some(PWObject::Link { ref data, .. }) => {
                 let LinkData {
@@ -574,7 +574,7 @@ impl PWGraph {
                 if let Some(input_port) = input_port {
                     self.get_links_to_port(&input_port).remove(&id);
                 };
-                info!(target: "PWGraph::remove", "Removed Link ({id})");
+                debug!(target: "PWGraph::remove", "Removed Link ({id})");
             }
             None => {
                 trace!(target: "PWGraph::remove", "Tried to remove inexistent object with ID {id}");
