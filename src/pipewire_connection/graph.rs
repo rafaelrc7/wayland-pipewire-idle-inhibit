@@ -285,11 +285,11 @@ impl PWGraph {
                     match *direction {
                         Direction::Input => {
                             debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input");
-                            self.get_node_input_ports(&node_id).insert(id);
+                            self.get_node_input_ports(node_id).insert(id);
                         }
                         Direction::Output => {
                             debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output");
-                            self.get_node_output_ports(&node_id).insert(id);
+                            self.get_node_output_ports(node_id).insert(id);
                         }
                         _ => {}
                     };
@@ -306,12 +306,12 @@ impl PWGraph {
 
                 if let Some(output_port) = output_port {
                     debug!(target: "PWGraph::insert", "Link ({id}) with output_port {output_port}");
-                    self.get_links_from_port(&output_port).insert(id);
+                    self.get_links_from_port(output_port).insert(id);
                 };
 
                 if let Some(input_port) = input_port {
                     debug!(target: "PWGraph::insert", "Link ({id}) with input_port {input_port}");
-                    self.get_links_to_port(&input_port).insert(id);
+                    self.get_links_to_port(input_port).insert(id);
                 };
             }
         }
@@ -551,10 +551,10 @@ impl PWGraph {
                 if let (Some(node_id), Some(direction)) = (node_id, direction) {
                     match *direction {
                         Direction::Input => {
-                            self.get_node_input_ports(&node_id).remove(&id);
+                            self.get_node_input_ports(node_id).remove(&id);
                         }
                         Direction::Output => {
-                            self.get_node_output_ports(&node_id).remove(&id);
+                            self.get_node_output_ports(node_id).remove(&id);
                         }
                         _ => {}
                     };
@@ -568,11 +568,11 @@ impl PWGraph {
                     ..
                 } = data;
                 if let Some(output_port) = output_port {
-                    self.get_links_from_port(&output_port).remove(&id);
+                    self.get_links_from_port(output_port).remove(&id);
                 };
 
                 if let Some(input_port) = input_port {
-                    self.get_links_to_port(&input_port).remove(&id);
+                    self.get_links_to_port(input_port).remove(&id);
                 };
                 debug!(target: "PWGraph::remove", "Removed Link ({id})");
             }
@@ -613,8 +613,8 @@ impl PWGraph {
 
         for sink in self.get_sinks() {
             trace!(target: "PWgraph::get_active_sinks", "Starting transversal from Sink {sink}");
-            if self.check_node_active(&sink, &mut HashSet::new()) {
-                active_sinks.insert(&sink);
+            if self.check_node_active(sink, &mut HashSet::new()) {
+                active_sinks.insert(sink);
             }
         }
 

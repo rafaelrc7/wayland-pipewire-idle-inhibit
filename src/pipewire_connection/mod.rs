@@ -255,15 +255,13 @@ fn registry_global_port<Msg: From<PWEvent> + 'static>(
         .as_ref()
         .expect("Port object is missing properties");
     let name = props.get(&keys::PORT_NAME).map(|s| s.to_string());
-    let node_id: Option<Id> = props.get(&keys::NODE_ID).map(|s| s.parse().ok()).flatten();
+    let node_id: Option<Id> = props.get(&keys::NODE_ID).and_then(|s| s.parse().ok());
     let direction = props
         .get(&keys::PORT_DIRECTION)
-        .map(|s| direction_from_string(s))
-        .flatten();
+        .and_then(direction_from_string);
     let is_terminal: Option<bool> = props
         .get(&keys::PORT_TERMINAL)
-        .map(|s| s.parse().ok())
-        .flatten();
+        .and_then(|s| s.parse().ok());
 
     let proxy: Port = registry.bind(port).expect("Failed to bind Port Proxy");
     let listener: PortListener = proxy
@@ -305,15 +303,13 @@ fn port_info<Msg: From<PWEvent>>(
 
     let props = info.props().expect("PortInfo object is missing properties");
     let name = props.get(&keys::PORT_NAME).map(|s| s.to_string());
-    let node_id: Option<Id> = props.get(&keys::NODE_ID).map(|s| s.parse().ok()).flatten();
+    let node_id: Option<Id> = props.get(&keys::NODE_ID).and_then(|s| s.parse().ok());
     let direction = props
         .get(&keys::PORT_DIRECTION)
-        .map(|s| direction_from_string(s))
-        .flatten();
+        .and_then(direction_from_string);
     let is_terminal: Option<bool> = props
         .get(&keys::PORT_TERMINAL)
-        .map(|s| s.parse().ok())
-        .flatten();
+        .and_then(|s| s.parse().ok());
 
     let new_data = PortData {
         name,
@@ -343,12 +339,10 @@ fn registry_global_link<Msg: From<PWEvent> + 'static>(
 
     let input_port: Option<Id> = props
         .get(&keys::LINK_INPUT_PORT)
-        .map(|s| s.parse().ok())
-        .flatten();
+        .and_then(|s| s.parse().ok());
     let output_port: Option<Id> = props
         .get(&keys::LINK_OUTPUT_PORT)
-        .map(|s| s.parse().ok())
-        .flatten();
+        .and_then(|s| s.parse().ok());
     let active = Some(false);
 
     let proxy: Link = registry.bind(link).expect("Failed to bind Link Proxy");
@@ -390,12 +384,10 @@ fn link_info<Msg: From<PWEvent>>(
     let props = info.props().expect("LinkInfo object is missing properties");
     let input_port: Option<Id> = props
         .get(&keys::LINK_INPUT_PORT)
-        .map(|s| s.parse().ok())
-        .flatten();
+        .and_then(|s| s.parse().ok());
     let output_port: Option<Id> = props
         .get(&keys::LINK_OUTPUT_PORT)
-        .map(|s| s.parse().ok())
-        .flatten();
+        .and_then(|s| s.parse().ok());
 
     let active = if info.change_mask().contains(LinkChangeMask::STATE) {
         Some(matches!(info.state(), LinkState::Active))

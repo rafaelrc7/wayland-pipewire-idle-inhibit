@@ -67,7 +67,7 @@ fn main() {
     let (event_queue_sender, event_queue) = mpsc::channel::<Msg>();
 
     let mut signals =
-        Signals::new(&[SIGINT, SIGQUIT, SIGTERM]).expect("Failed to create signal listener");
+        Signals::new([SIGINT, SIGQUIT, SIGTERM]).expect("Failed to create signal listener");
     let signal_thread = thread::spawn({
         let event_queue_sender = event_queue_sender.clone();
         move || {
