@@ -1,4 +1,4 @@
-// Copyright (C) 2023  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2023-2024  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,31 +15,91 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::thread;
+use std::{sync::mpsc, thread};
+
+mod inhibit_idle_state;
+use chrono::Duration;
+use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
 
 mod pipewire_connection;
-mod wayland_connection;
-use wayland_connection::WaylandConnection;
+use pipewire_connection::{PWEvent, PWMsg, PWThread};
+
+mod wayland_idle_inhibitor;
+use wayland_idle_inhibitor::WaylandIdleInhibitor;
 
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
     iterator::Signals,
 };
 
+#[derive(Debug)]
+enum Msg {
+    PWGraphUpdated,
+    PWInhibitIdleState(bool),
+    IIEInhibitIdleState(bool),
+    Terminate,
+}
+
+impl From<PWEvent> for Msg {
+    fn from(value: PWEvent) -> Self {
+        match value {
+            PWEvent::GraphUpdated => Msg::PWGraphUpdated,
+            PWEvent::InhibitIdleState(inhibit_idle_state) => {
+                Msg::PWInhibitIdleState(inhibit_idle_state)
+            }
+        }
+    }
+}
+
+impl From<InhibitIdleStateEvent> for Msg {
+    fn from(value: InhibitIdleStateEvent) -> Self {
+        match value {
+            InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
+                Msg::IIEInhibitIdleState(inhibit_idle_state)
+            }
+        }
+    }
+}
+
 fn main() {
     env_logger::init();
 
-    let mut wayland_connection = WaylandConnection::new();
-    let (pw_thread, pw_thread_terminate) = pipewire_connection::PWThread::new();
+    let (event_queue_sender, event_queue) = mpsc::channel::<Msg>();
 
     let mut signals =
         Signals::new(&[SIGINT, SIGQUIT, SIGTERM]).expect("Failed to create signal listener");
-    let signal_thread = thread::spawn(move || {
-        for _sig in signals.wait() {
-            pw_thread_terminate.send();
+    let signal_thread = thread::spawn({
+        let event_queue_sender = event_queue_sender.clone();
+        move || {
+            for _sig in signals.wait() {
+                event_queue_sender.send(Msg::Terminate).unwrap();
+            }
         }
     });
 
-    pw_thread.run(move |inhibit_idle| wayland_connection.set_inhibit_idle(inhibit_idle));
+    let pw_thread = PWThread::new(event_queue_sender.clone());
+    let mut wayland_idle_inhibitor = WaylandIdleInhibitor::new();
+    let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
+        InhibitIdleState::new(Some(Duration::seconds(5)), event_queue_sender);
+
+    loop {
+        match event_queue.recv().unwrap() {
+            Msg::PWGraphUpdated => {
+                pw_thread.send(PWMsg::GraphUpdated).unwrap();
+            }
+            Msg::PWInhibitIdleState(inhibit_idle_state) => {
+                inhibit_idle_state_manager.set_is_idle_inhibited(inhibit_idle_state);
+            }
+            Msg::IIEInhibitIdleState(inhibit_idle_state) => {
+                wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state);
+            }
+            Msg::Terminate => {
+                pw_thread.send(PWMsg::Terminate).unwrap();
+                break;
+            }
+        }
+    }
+
+    pw_thread.join().unwrap();
     signal_thread.join().unwrap();
 }
