@@ -11,7 +11,7 @@ and [PipeWire](https://www.pipewire.org/).
 
 This is the first usable version of the project. You just need to run the built program. However, many improvements are planned for the short futures such as:
 
-- [ ] Refactoring of the PipeWire connection code.
+- [x] Refactoring of the PipeWire connection code.
 - [ ] Configuration File.
 - [ ] Sink Selection.
 - [ ] Customisation of the minimum audio duration to trigger idle inhibition.
