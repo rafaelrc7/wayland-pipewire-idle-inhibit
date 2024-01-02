@@ -646,8 +646,10 @@ impl PWGraph {
 
         trace!(target: "PWGraph::check_node_active", "Node {id}");
         match self.get(id) {
-            Some(PWObject::Node { .. }) => {
-                // TODO: Specific Node tests
+            Some(PWObject::Node { data, .. }) => {
+                if NodeFilter::matches_any(&self.node_blacklist, data) {
+                    return false;
+                }
             }
             None => {
                 warn!(target: "PWGraph::check_node_active", "While transversing graph, got invalid id {id}");
