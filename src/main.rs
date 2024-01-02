@@ -84,7 +84,7 @@ fn main() {
         }
     });
 
-    let pw_thread = PWThread::new(event_queue_sender.clone());
+    let pw_thread = PWThread::new(event_queue_sender.clone(), Vec::new(), Vec::new());
     let mut wayland_idle_inhibitor = WaylandIdleInhibitor::new();
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(args.get_media_minimun_duration(), event_queue_sender);

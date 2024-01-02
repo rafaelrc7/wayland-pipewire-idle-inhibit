@@ -22,3 +22,4 @@ signal-hook = "0.3"
 wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
 wayland-client = "0.31"
 clap = { version = "4.4.12", features = ["derive", "cargo"] }
+regex = "1.10"

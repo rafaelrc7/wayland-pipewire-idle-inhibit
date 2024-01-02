@@ -912,6 +912,7 @@ dependencies = [
  "env_logger",
  "log",
  "pipewire",
+ "regex",
  "signal-hook",
  "timer",
  "wayland-client",

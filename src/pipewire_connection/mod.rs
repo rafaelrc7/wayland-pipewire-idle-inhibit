@@ -41,6 +41,9 @@ use log::debug;
 pub mod graph;
 use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy};
 
+pub mod graph_filter;
+use graph_filter::{NodeFilter, SinkFilter};
+
 #[derive(Debug)]
 pub enum PWMsg {
     Terminate,
@@ -59,12 +62,23 @@ pub struct PWThread {
 }
 
 impl PWThread {
-    pub fn new<Msg: From<PWEvent> + Send + 'static>(pw_event_listener: mpsc::Sender<Msg>) -> Self {
+    pub fn new<Msg: From<PWEvent> + Send + 'static>(
+        pw_event_listener: mpsc::Sender<Msg>,
+        sink_whitelist: Vec<SinkFilter>,
+        node_blacklist: Vec<NodeFilter>,
+    ) -> Self {
         let (pw_event_sender, pw_event_queue) = pipewire::channel::channel();
 
         let pw_thread = thread::spawn({
             let pw_event_listener = pw_event_listener.clone();
-            move || pw_thread(pw_event_listener, pw_event_queue)
+            move || {
+                pw_thread(
+                    pw_event_listener,
+                    pw_event_queue,
+                    sink_whitelist,
+                    node_blacklist,
+                )
+            }
         });
 
         PWThread {
@@ -86,11 +100,13 @@ impl PWThread {
 fn pw_thread<Msg: From<PWEvent> + 'static>(
     pw_event_listener: mpsc::Sender<Msg>,
     pw_event_queue: pipewire::channel::Receiver<PWMsg>,
+    sink_whitelist: Vec<SinkFilter>,
+    node_blacklist: Vec<NodeFilter>,
 ) {
     pipewire::init();
     let mainloop = MainLoop::new().expect("Failed to create mainloop.");
 
-    let graph = Rc::new(RefCell::new(PWGraph::new()));
+    let graph = Rc::new(RefCell::new(PWGraph::new(sink_whitelist, node_blacklist)));
 
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));

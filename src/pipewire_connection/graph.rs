@@ -27,6 +27,8 @@ use pipewire::{
 
 use log::{debug, trace, warn};
 
+use super::graph_filter::{Filter, NodeFilter, SinkFilter};
+
 pub type Id = u32;
 
 pub struct Proxy<TProxy: ProxyT, TListener: Listener> {
@@ -248,7 +250,6 @@ pub enum PWObject {
 
 impl PWObject {}
 
-#[derive(Default)]
 pub struct PWGraph {
     objects: HashMap<Id, PWObject>,
     sinks: HashSet<Id>,
@@ -256,11 +257,22 @@ pub struct PWGraph {
     links_from_port: HashMap<Id, HashSet<Id>>,
     node_input_ports: HashMap<Id, HashSet<Id>>,
     node_output_ports: HashMap<Id, HashSet<Id>>,
+    sink_whitelist: Vec<SinkFilter>,
+    node_blacklist: Vec<NodeFilter>,
 }
 
 impl PWGraph {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(sink_whitelist: Vec<SinkFilter>, node_blacklist: Vec<NodeFilter>) -> Self {
+        Self {
+            objects: HashMap::default(),
+            sinks: HashSet::default(),
+            links_to_port: HashMap::default(),
+            links_from_port: HashMap::default(),
+            node_input_ports: HashMap::default(),
+            node_output_ports: HashMap::default(),
+            sink_whitelist,
+            node_blacklist,
+        }
     }
 
     pub fn insert(&mut self, id: Id, obj: PWObject) {
@@ -271,7 +283,9 @@ impl PWGraph {
                 } = data;
                 debug!(target: "PWGraph::insert", "Node ({id}) '{}'; {:?}", data.get_name(), data);
                 if let Some(media_class) = media_class {
-                    if media_class.contains("Sink") {
+                    if media_class.contains("Sink")
+                        && (self.sink_whitelist.is_empty() || SinkFilter::matches_any(&self.sink_whitelist, data))
+                    {
                         self.sinks.insert(id);
                     }
                 };
@@ -376,7 +390,9 @@ impl PWGraph {
                                 self.sinks.remove(&id);
                             }
                         }
-                        if new_media_class.contains("Sink") {
+                        if new_media_class.contains("Sink")
+                            && (self.sink_whitelist.is_empty() || SinkFilter::matches_any(&self.sink_whitelist, &new_data))
+                        {
                             self.sinks.insert(id);
                         }
                     }
