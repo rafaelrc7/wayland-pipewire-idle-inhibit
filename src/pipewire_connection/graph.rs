@@ -269,7 +269,7 @@ impl PWGraph {
                 let NodeData {
                     ref media_class, ..
                 } = data;
-                debug!(target: "PWGraph::insert", "Node ({id}) '{}'", data.get_name());
+                debug!(target: "PWGraph::insert", "Node ({id}) '{}'; {:?}", data.get_name(), data);
                 if let Some(media_class) = media_class {
                     if media_class.contains("Sink") {
                         self.sinks.insert(id);
@@ -284,11 +284,11 @@ impl PWGraph {
                 if let (Some(node_id), Some(direction)) = (node_id, direction) {
                     match *direction {
                         Direction::Input => {
-                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input");
+                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input; {:?}", data);
                             self.get_node_input_ports(node_id).insert(id);
                         }
                         Direction::Output => {
-                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output");
+                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output; {:?}", data);
                             self.get_node_output_ports(node_id).insert(id);
                         }
                         _ => {}
@@ -302,7 +302,7 @@ impl PWGraph {
                     ..
                 } = data;
 
-                debug!(target: "PWGraph::insert", "Link ({id})");
+                debug!(target: "PWGraph::insert", "Link ({id}); {:?}", data);
 
                 if let Some(output_port) = output_port {
                     debug!(target: "PWGraph::insert", "Link ({id}) with output_port {output_port}");
@@ -610,6 +610,10 @@ impl PWGraph {
 
     pub fn get_active_sinks(&self) -> HashSet<&Id> {
         let mut active_sinks: HashSet<&Id> = HashSet::new();
+
+        if self.get_sinks().is_empty() {
+            warn!(target: "PWGraph::get_active_sinks", "List of sinks is empty");
+        }
 
         for sink in self.get_sinks() {
             trace!(target: "PWgraph::get_active_sinks", "Starting transversal from Sink {sink}");
