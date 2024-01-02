@@ -284,7 +284,8 @@ impl PWGraph {
                 debug!(target: "PWGraph::insert", "Node ({id}) '{}'; {:?}", data.get_name(), data);
                 if let Some(media_class) = media_class {
                     if media_class.contains("Sink")
-                        && (self.sink_whitelist.is_empty() || SinkFilter::matches_any(&self.sink_whitelist, data))
+                        && (self.sink_whitelist.is_empty()
+                            || SinkFilter::matches_any(&self.sink_whitelist, data))
                     {
                         self.sinks.insert(id);
                     }
@@ -391,7 +392,8 @@ impl PWGraph {
                             }
                         }
                         if new_media_class.contains("Sink")
-                            && (self.sink_whitelist.is_empty() || SinkFilter::matches_any(&self.sink_whitelist, &new_data))
+                            && (self.sink_whitelist.is_empty()
+                                || SinkFilter::matches_any(&self.sink_whitelist, &new_data))
                         {
                             self.sinks.insert(id);
                         }

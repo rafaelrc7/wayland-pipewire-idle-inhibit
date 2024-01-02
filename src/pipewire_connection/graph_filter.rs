@@ -31,7 +31,7 @@ pub trait Filter<T> {
                 return false;
             }
         }
-        return true;
+        true
     }
 
     fn matches_any(filters: &Vec<Self>, data: &T) -> bool
@@ -43,7 +43,7 @@ pub trait Filter<T> {
                 return true;
             }
         }
-        return false;
+        false
     }
 }
 
@@ -65,7 +65,7 @@ impl Filter<NodeData> for SinkFilter {
             }
         }
 
-        return true;
+        true
     }
 }
 
@@ -101,23 +101,23 @@ impl Filter<NodeData> for NodeFilter {
         }
 
         if let Some(media_class) = &self.media_class {
-            if !media_class.is_match(&node.media_class.clone().unwrap_or(String::default())) {
+            if !media_class.is_match(&node.media_class.clone().unwrap_or_default()) {
                 return false;
             }
         }
 
         if let Some(media_role) = &self.media_role {
-            if !media_role.is_match(&node.media_role.clone().unwrap_or(String::default())) {
+            if !media_role.is_match(&node.media_role.clone().unwrap_or_default()) {
                 return false;
             }
         }
 
         if let Some(media_software) = &self.media_software {
-            if !media_software.is_match(&node.media_software.clone().unwrap_or(String::default())) {
+            if !media_software.is_match(&node.media_software.clone().unwrap_or_default()) {
                 return false;
             }
         }
 
-        return true;
+        true
     }
 }
