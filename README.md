@@ -12,10 +12,10 @@ and [PipeWire](https://www.pipewire.org/).
 This is the first usable version of the project. You just need to run the built program. However, many improvements are planned for the short futures such as:
 
 - [x] Refactoring of the PipeWire connection code.
-- [ ] Configuration File.
-- [ ] Sink Selection.
 - [x] Customisation of the minimum audio duration to trigger idle inhibition.
+- [ ] Sink Selection.
 - [ ] Software whitelist.
+- [ ] Configuration File.
 
 ## Building
 
@@ -26,6 +26,12 @@ This is the first usable version of the project. You just need to run the built 
 ### Cargo
 
 `cargo build`
+
+## Usage
+
+run
+`wayland-pipewire-idle-inhibit --help`
+for a list of options.
 
 ## Thanks
 
