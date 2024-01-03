@@ -15,6 +15,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 use regex::Regex;
+use serde::{Deserialize, Serialize};
 
 use super::graph::NodeData;
 
@@ -46,14 +47,11 @@ pub trait Filter<T> {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct SinkFilter {
+    #[serde(with = "serde_regex")]
+    #[serde(default)]
     name: Option<Regex>,
-}
-
-impl SinkFilter {
-    pub fn new(name: Option<Regex>) -> Self {
-        Self { name }
-    }
 }
 
 impl Filter<NodeData> for SinkFilter {
@@ -68,27 +66,23 @@ impl Filter<NodeData> for SinkFilter {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NodeFilter {
+    #[serde(with = "serde_regex")]
+    #[serde(default)]
     name: Option<Regex>,
-    media_class: Option<Regex>,
-    media_role: Option<Regex>,
-    media_software: Option<Regex>,
-}
 
-impl NodeFilter {
-    pub fn new(
-        name: Option<Regex>,
-        media_class: Option<Regex>,
-        media_role: Option<Regex>,
-        media_software: Option<Regex>,
-    ) -> Self {
-        Self {
-            name,
-            media_class,
-            media_role,
-            media_software,
-        }
-    }
+    #[serde(with = "serde_regex")]
+    #[serde(default)]
+    media_class: Option<Regex>,
+
+    #[serde(with = "serde_regex")]
+    #[serde(default)]
+    media_role: Option<Regex>,
+
+    #[serde(with = "serde_regex")]
+    #[serde(default)]
+    media_software: Option<Regex>,
 }
 
 impl Filter<NodeData> for NodeFilter {

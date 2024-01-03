@@ -15,7 +15,7 @@ This is the first usable version of the project. You just need to run the built 
 - [x] Customisation of the minimum audio duration to trigger idle inhibition.
 - [x] Sink whitelist.
 - [x] Software blacklist.
-- [ ] Configuration File.
+- [x] Configuration File.
 
 ## Building
 

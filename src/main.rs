@@ -21,8 +21,6 @@ use signal_hook::{
     iterator::Signals,
 };
 
-use clap::Parser;
-
 mod inhibit_idle_state;
 use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
 
@@ -33,6 +31,7 @@ mod wayland_idle_inhibitor;
 use wayland_idle_inhibitor::WaylandIdleInhibitor;
 
 mod args;
+mod config;
 
 #[derive(Debug)]
 enum Msg {
@@ -64,10 +63,10 @@ impl From<InhibitIdleStateEvent> for Msg {
 }
 
 fn main() {
-    let args = args::Args::parse();
+    let settings = config::Settings::new(None);
 
     env_logger::Builder::new()
-        .filter_level(args.get_log_level())
+        .filter_level(settings.get_verbosity())
         .init();
 
     let (event_queue_sender, event_queue) = mpsc::channel::<Msg>();
@@ -83,10 +82,14 @@ fn main() {
         }
     });
 
-    let pw_thread = PWThread::new(event_queue_sender.clone(), Vec::new(), Vec::new());
+    let pw_thread = PWThread::new(
+        event_queue_sender.clone(),
+        settings.get_sink_whitelist().to_vec(),
+        settings.get_node_blacklist().to_vec(),
+    );
     let mut wayland_idle_inhibitor = WaylandIdleInhibitor::new();
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
-        InhibitIdleState::new(args.get_media_minimun_duration(), event_queue_sender);
+        InhibitIdleState::new(settings.get_media_minimum_duration(), event_queue_sender);
 
     loop {
         match event_queue.recv().unwrap() {

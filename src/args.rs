@@ -16,30 +16,30 @@
 
 use std::fmt::Display;
 
-use chrono::Duration;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use log::LevelFilter;
+use serde::{Deserialize, Serialize};
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Serialize, Deserialize)]
 #[command(author, version, about)]
 pub struct Args {
     #[arg(
         short = 'd',
         long,
         value_name = "SECONDS",
-        default_value_t = 5,
         allow_negative_numbers = false,
         help = "Minimum media duration to inhibit idle"
     )]
-    media_minimum_duration: i64,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    media_minimum_duration: Option<i64>,
 
     #[arg(
         short,
         long,
-        default_value_t = LogLevel(LevelFilter::Warn),
-        default_value_if("quiet", "true", "quiet"),
+        default_value_if("quiet", true.to_string(), LogLevel(LevelFilter::Off).to_string()),
         help="Log verbosity")]
-    verbosity: LogLevel,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    verbosity: Option<LogLevel>,
 
     #[arg(
         short,
@@ -47,37 +47,17 @@ pub struct Args {
         conflicts_with = "verbosity",
         help = "Disables logging completely"
     )]
+    #[serde(skip_serializing)]
+    #[serde(default)]
     quiet: bool,
 }
 
-impl Args {
-    pub fn get_log_level(&self) -> LevelFilter {
-        let LogLevel(level_filter) = self.verbosity;
-        level_filter
-    }
-
-    pub fn get_media_minimun_duration(&self) -> Option<Duration> {
-        match self.media_minimum_duration {
-            0 => None,
-            d => Some(Duration::seconds(d)),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct LogLevel(LevelFilter);
 
 impl Display for LogLevel {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self(level_filter) = self;
-        match level_filter {
-            LevelFilter::Off => write!(f, "off"),
-            LevelFilter::Error => write!(f, "error"),
-            LevelFilter::Warn => write!(f, "warn"),
-            LevelFilter::Info => write!(f, "info"),
-            LevelFilter::Debug => write!(f, "debug"),
-            LevelFilter::Trace => write!(f, "trace"),
-        }
+        self.0.fmt(f)
     }
 }
 
@@ -93,15 +73,7 @@ impl ValueEnum for LogLevel {
         ]
     }
 
-    fn to_possible_value(&self) -> Option<clap::builder::PossibleValue> {
-        let LogLevel(level_filter) = self;
-        match level_filter {
-            LevelFilter::Off => Some(PossibleValue::new("quiet")),
-            LevelFilter::Error => Some(PossibleValue::new("error")),
-            LevelFilter::Warn => Some(PossibleValue::new("warn")),
-            LevelFilter::Info => Some(PossibleValue::new("info")),
-            LevelFilter::Debug => Some(PossibleValue::new("debug")),
-            LevelFilter::Trace => Some(PossibleValue::new("trace")),
-        }
+    fn to_possible_value(&self) -> Option<PossibleValue> {
+        Some(PossibleValue::new(self.0.to_string()))
     }
 }
