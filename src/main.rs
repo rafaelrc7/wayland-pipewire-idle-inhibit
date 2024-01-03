@@ -63,7 +63,7 @@ impl From<InhibitIdleStateEvent> for Msg {
 }
 
 fn main() {
-    let settings = Settings::new(None);
+    let settings = Settings::new();
 
     env_logger::Builder::new()
         .filter_level(settings.get_verbosity())

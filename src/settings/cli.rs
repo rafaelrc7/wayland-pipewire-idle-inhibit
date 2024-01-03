@@ -50,6 +50,10 @@ pub struct Args {
     #[serde(skip_serializing)]
     #[serde(default)]
     quiet: bool,
+
+    #[arg(short, long, value_name = "PATH", help = "Path to config file")]
+    #[serde(skip_serializing)]
+    pub config: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

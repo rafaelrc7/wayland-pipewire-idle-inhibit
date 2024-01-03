@@ -46,18 +46,20 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new(path: Option<PathBuf>) -> Self {
-        let path = match path {
-            Some(path) => path,
-            None => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
-                .unwrap()
-                .place_config_file("config.toml")
-                .expect("Canno crate configuration file at default directory"),
+    pub fn new() -> Self {
+        let cli = Args::parse();
+
+        let config_path = match cli.config {
+            Some(ref p) => PathBuf::from(p),
+            None => {
+                let xdg_dirs = xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME")).unwrap();
+                xdg_dirs.place_config_file("config.toml").unwrap()
+            }
         };
 
         let settings = Figment::new()
-            .merge(Toml::file(path))
-            .merge(Serialized::defaults(Args::parse()))
+            .merge(Toml::file(config_path))
+            .merge(Serialized::defaults(cli))
             .extract();
 
         match settings {
