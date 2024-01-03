@@ -14,7 +14,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::path::PathBuf;
+use std::{error::Error, path::PathBuf};
 
 use chrono::Duration;
 use clap::Parser;
@@ -46,26 +46,21 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self, Box<dyn Error>> {
         let cli = Args::parse();
 
         let config_path = match cli.config {
             Some(ref p) => PathBuf::from(p),
-            None => {
-                let xdg_dirs = xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME")).unwrap();
-                xdg_dirs.place_config_file("config.toml").unwrap()
-            }
+            None => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))?
+                .place_config_file("config.toml")?,
         };
 
         let settings = Figment::new()
             .merge(Toml::file(config_path))
             .merge(Serialized::defaults(cli))
-            .extract();
+            .extract()?;
 
-        match settings {
-            Ok(settings) => settings,
-            Err(error) => panic!("{}", error),
-        }
+        Ok(settings)
     }
 
     pub fn get_media_minimum_duration(&self) -> Option<Duration> {

@@ -14,6 +14,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+use std::error::Error;
+
 use wayland_client::{
     protocol::{
         wl_compositor::WlCompositor,
@@ -21,7 +23,7 @@ use wayland_client::{
         wl_registry::{self, WlRegistry},
         wl_surface::WlSurface,
     },
-    Connection, Dispatch, EventQueue, Proxy, QueueHandle,
+    Connection, Dispatch, DispatchError, EventQueue, Proxy, QueueHandle,
 };
 
 use wayland_protocols::wp::idle_inhibit::zv1::client::{
@@ -40,9 +42,8 @@ pub struct WaylandIdleInhibitor {
 }
 
 impl WaylandIdleInhibitor {
-    pub fn new() -> Self {
-        let connection =
-            Connection::connect_to_env().expect("Failed to create Wayland connection!");
+    pub fn new() -> Result<Self, Box<dyn Error>> {
+        let connection = Connection::connect_to_env()?;
         let display = connection.display();
         let event_queue = connection.new_event_queue();
         let qhandle = event_queue.handle();
@@ -56,38 +57,40 @@ impl WaylandIdleInhibitor {
             _registry: registry,
             data: AppData::default(),
         };
-        obj.roundtrip();
-        obj
+        obj.roundtrip()?;
+        Ok(obj)
     }
 
-    pub fn roundtrip(&mut self) {
-        self.event_queue.roundtrip(&mut self.data).unwrap();
+    pub fn roundtrip(&mut self) -> Result<usize, DispatchError> {
+        self.event_queue.roundtrip(&mut self.data)
     }
 
-    pub fn set_inhibit_idle(&mut self, inhibit_idle: bool) {
+    pub fn set_inhibit_idle(&mut self, inhibit_idle: bool) -> Result<(), Box<dyn Error>> {
         let data = &self.data;
         let Some((idle_manager, _)) = &data.idle_manager else {
             warn!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Tried to change idle inhibitor status without loaded idle inhibitor manager!");
-            return;
+            return Ok(());
         };
 
         if inhibit_idle {
             if data._idle_inhibitor.is_none() {
                 let Some(surface) = &data.surface else {
                     warn!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Tried to change idle inhibitor status without loaded WlSurface!");
-                    return;
+                    return Ok(());
                 };
                 self.data._idle_inhibitor =
                     Some(idle_manager.create_inhibitor(surface, &self.qhandle, ()));
-                self.roundtrip();
+                self.roundtrip()?;
                 info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was ENABLED");
             }
         } else if let Some(indle_inhibitor) = &self.data._idle_inhibitor {
             indle_inhibitor.destroy();
             self.data._idle_inhibitor = None;
-            self.roundtrip();
+            self.roundtrip()?;
             info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was DISABLED");
         }
+
+        Ok(())
     }
 }
 

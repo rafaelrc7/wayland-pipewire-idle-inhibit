@@ -14,7 +14,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
-use std::{sync::mpsc, thread};
+use std::{error::Error, sync::mpsc, thread};
 
 use signal_hook::{
     consts::{SIGINT, SIGQUIT, SIGTERM},
@@ -62,8 +62,8 @@ impl From<InhibitIdleStateEvent> for Msg {
     }
 }
 
-fn main() {
-    let settings = Settings::new();
+fn main() -> Result<(), Box<dyn Error>> {
+    let settings = Settings::new()?;
 
     env_logger::Builder::new()
         .filter_level(settings.get_verbosity())
@@ -87,7 +87,7 @@ fn main() {
         settings.get_sink_whitelist().to_vec(),
         settings.get_node_blacklist().to_vec(),
     );
-    let mut wayland_idle_inhibitor = WaylandIdleInhibitor::new();
+    let mut wayland_idle_inhibitor = WaylandIdleInhibitor::new()?;
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(settings.get_media_minimum_duration(), event_queue_sender);
 
@@ -100,7 +100,7 @@ fn main() {
                 inhibit_idle_state_manager.set_is_idle_inhibited(inhibit_idle_state);
             }
             Msg::IIEInhibitIdleState(inhibit_idle_state) => {
-                wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state);
+                wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state)?;
             }
             Msg::Terminate => {
                 pw_thread.send(PWMsg::Terminate).unwrap();
@@ -111,4 +111,6 @@ fn main() {
 
     pw_thread.join().unwrap();
     signal_thread.join().unwrap();
+
+    Ok(())
 }
