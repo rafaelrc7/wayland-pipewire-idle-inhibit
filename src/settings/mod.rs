@@ -25,8 +25,10 @@ use figment::{
 use log::LevelFilter;
 use serde::Deserialize;
 
-use crate::args::Args;
 use crate::pipewire_connection::graph_filter::{NodeFilter, SinkFilter};
+
+mod cli;
+use cli::Args;
 
 #[derive(Deserialize)]
 pub struct Settings {

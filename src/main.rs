@@ -30,8 +30,8 @@ use pipewire_connection::{PWEvent, PWMsg, PWThread};
 mod wayland_idle_inhibitor;
 use wayland_idle_inhibitor::WaylandIdleInhibitor;
 
-mod args;
-mod config;
+mod settings;
+use settings::Settings;
 
 #[derive(Debug)]
 enum Msg {
@@ -63,7 +63,7 @@ impl From<InhibitIdleStateEvent> for Msg {
 }
 
 fn main() {
-    let settings = config::Settings::new(None);
+    let settings = Settings::new(None);
 
     env_logger::Builder::new()
         .filter_level(settings.get_verbosity())
