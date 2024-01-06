@@ -35,30 +35,20 @@ use settings::Settings;
 
 #[derive(Debug)]
 enum Msg {
-    PWGraphUpdated,
-    PWInhibitIdleState(bool),
-    IIEInhibitIdleState(bool),
+    PWEvent(PWEvent),
+    InhibitIdleStateEvent(InhibitIdleStateEvent),
     Terminate,
 }
 
 impl From<PWEvent> for Msg {
     fn from(value: PWEvent) -> Self {
-        match value {
-            PWEvent::GraphUpdated => Msg::PWGraphUpdated,
-            PWEvent::InhibitIdleState(inhibit_idle_state) => {
-                Msg::PWInhibitIdleState(inhibit_idle_state)
-            }
-        }
+        Msg::PWEvent(value)
     }
 }
 
 impl From<InhibitIdleStateEvent> for Msg {
     fn from(value: InhibitIdleStateEvent) -> Self {
-        match value {
-            InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                Msg::IIEInhibitIdleState(inhibit_idle_state)
-            }
-        }
+        Msg::InhibitIdleStateEvent(value)
     }
 }
 
@@ -99,17 +89,28 @@ fn main() {
 
     loop {
         match event_queue.recv().unwrap() {
-            Msg::PWGraphUpdated => {
-                pw_thread.send(PWMsg::GraphUpdated).unwrap();
+            Msg::PWEvent(pw_event) => match pw_event {
+                PWEvent::GraphUpdated => {
+                    pw_thread.send(PWMsg::GraphUpdated).unwrap();
+                }
+
+                PWEvent::InhibitIdleState(inhibit_idle_state) => {
+                    inhibit_idle_state_manager.set_is_idle_inhibited(inhibit_idle_state);
+                }
+            },
+
+            Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
+                match inhibit_idle_state_event {
+                    InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
+                        if let Err(error) =
+                            wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state)
+                        {
+                            panic!("{}", error);
+                        };
+                    }
+                }
             }
-            Msg::PWInhibitIdleState(inhibit_idle_state) => {
-                inhibit_idle_state_manager.set_is_idle_inhibited(inhibit_idle_state);
-            }
-            Msg::IIEInhibitIdleState(inhibit_idle_state) => {
-                if let Err(error) = wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state) {
-                    panic!("{}", error);
-                };
-            }
+
             Msg::Terminate => {
                 pw_thread.send(PWMsg::Terminate).unwrap();
                 break;
