@@ -13,6 +13,9 @@
         inputs.treefmt-nix.flakeModule
         inputs.flake-parts.flakeModules.easyOverlay
       ];
+      flake = {
+        homeManagerModules.wayland-pipewire-idle-inhibit = import ./module.nix;
+      };
       systems = [ "x86_64-linux" ];
       perSystem = { config, pkgs, ... }: {
         devShells.default = import ./shell.nix { inherit pkgs; };
