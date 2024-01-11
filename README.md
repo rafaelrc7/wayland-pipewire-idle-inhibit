@@ -7,7 +7,7 @@ Depends on the Wayland experimental protocol
 [idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1)
 and [PipeWire](https://www.pipewire.org/).
 
-## Building and Running
+## Building
 
 ### Nix
 
@@ -15,12 +15,10 @@ and [PipeWire](https://www.pipewire.org/).
 git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
 cd wayland-pipewire-idle-inhibit
 nix build
-./result/bin/wayland-pipewire-idle-inhibit
 ```
 
 ```sh
 nix build github:rafaelrc7/wayland-pipewire-idle-inhibit
-./result/bin/wayland-pipewire-idle-inhibit
 ```
 
 ### Cargo
@@ -28,7 +26,70 @@ nix build github:rafaelrc7/wayland-pipewire-idle-inhibit
 ```sh
 git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
 cd wayland-pipewire-idle-inhibit
-cargo run
+cargo build
+```
+
+## Installing
+
+### Nix Flake (recommended)
+
+Add the following snippet to your flake inputs:
+
+```nix
+wayland-pipewire-idle-inhibit = {
+  url = "github:rafaelrc7/wayland-pipewire-idle-inhibit";
+  inputs.nixpkgs.follows = "nixpkgs";
+};
+```
+
+From this point you have many options:
+
+#### Using the Home Manager module (recommended)
+
+Add the following to your home-manager imports:
+
+```nix
+inputs.wayland-pipewire-idle-inhibit.homeModules.default
+```
+
+And then you may use the option to set it up, for example:
+
+```nix
+services.wayland-pipewire-idle-inhibit = {
+  enable = true;
+  systemdTarget = "sway-session.target";
+  settings = {
+    verbosity = "INFO";
+    media_minimum_duration = 10;
+    sink_whitelist = [
+      { name = "Starship/Matisse HD Audio Controller Analog Stereo"; }
+    ];
+    node_blacklist = [
+      { name = "spotify"; }
+      { name = "Music Player Daemon"; }
+    ];
+  };
+};
+```
+
+#### Using the overlay
+
+```nix
+inputs.wayland-pipewire-idle-inhibit.overlays.default
+```
+
+#### Using the package
+
+```nix
+inputs.wayland-pipewire-idle-inhibit.packages.default
+```
+
+### Cargo
+
+```sh
+git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
+cd wayland-pipewire-idle-inhibit
+cargo install
 ```
 
 ## Usage
@@ -59,7 +120,7 @@ the config file. The default config file path is
 `~/.config/wayland-pipewire-idle-inhibit/config.toml`, but other path may be
 set using `--config <PATH>`.
 
-`~/.config/wayland-pipewire-idle-inhibit/config.toml`
+`~/.config/wayland-pipewire-idle-inhibit/config.toml` with the default options
 
 ```toml
 verbosity = "WARN"
@@ -80,10 +141,11 @@ matches any of the filters, it will be used.
 #### Example
 
 ```toml
-sink_whitelist = [
-	{ name = "Sink 1 name" },
-	{ name = "Another Sink" }
-]
+[[sink_whitelist]]
+name = "Sink 1 name"
+
+[[sink_whitelist]]
+name = "Another Sink"
 ```
 
 ### Node (Client) Blacklist
@@ -101,9 +163,8 @@ playing media. If the node matches any of the filters, it will be ignored.
 #### Example
 
 ```toml
-node_blacklist = [
-    { name = "[Ff]irefox" }
-]
+[[node_blacklist]]
+name = "[Ff]irefox"
 ```
 
 ## Thanks
