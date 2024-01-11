@@ -14,6 +14,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Connection to the Wayland compositor and manages the Wayland Idle Inhibitor.
+
 use std::error::Error;
 
 use wayland_client::{
@@ -32,6 +34,7 @@ use wayland_protocols::wp::idle_inhibit::zv1::client::{
 
 use log::{debug, info, warn};
 
+/// Wrapper to the Wayland objects and the idle inhibitor protocol
 pub struct WaylandIdleInhibitor {
     _connection: Connection,
     _display: WlDisplay,
@@ -42,6 +45,8 @@ pub struct WaylandIdleInhibitor {
 }
 
 impl WaylandIdleInhibitor {
+    /// Builds the connection struct and fires the initial events, necessary to receive and store
+    /// wayland objects
     pub fn new() -> Result<Self, Box<dyn Error>> {
         let connection = Connection::connect_to_env()?;
         let display = connection.display();
@@ -61,10 +66,12 @@ impl WaylandIdleInhibitor {
         Ok(obj)
     }
 
+    /// Fires enqueued Wayland events to be treated
     pub fn roundtrip(&mut self) -> Result<usize, DispatchError> {
         self.event_queue.roundtrip(&mut self.data)
     }
 
+    /// Enables or disables Idle inhibiting using the Wayland protocol
     pub fn set_inhibit_idle(&mut self, inhibit_idle: bool) -> Result<(), Box<dyn Error>> {
         let data = &self.data;
         let Some((idle_manager, _)) = &data.idle_manager else {
@@ -94,6 +101,7 @@ impl WaylandIdleInhibitor {
     }
 }
 
+/// Wayland connection and main objects
 #[derive(Default)]
 struct AppData {
     compositor: Option<(WlCompositor, u32)>,
@@ -102,6 +110,7 @@ struct AppData {
     _idle_inhibitor: Option<ZwpIdleInhibitorV1>,
 }
 
+/// Subscribes to the [WlRegistry] events, mainly to treat added and removed objects
 impl Dispatch<WlRegistry, ()> for AppData {
     fn event(
         state: &mut Self,

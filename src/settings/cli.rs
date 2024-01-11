@@ -14,12 +14,17 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! CLI Args parsing and processing
+
 use std::fmt::Display;
 
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
+/// Struct used to derive, parse and serialise CLI args. Some of the fields will not be used by the
+/// application and are only relevant in the context of CLI arguments, and thus have their
+/// serialisation skipped.
 #[derive(Parser, Debug, Serialize, Deserialize)]
 #[command(author, version, about)]
 pub struct Args {
@@ -56,6 +61,8 @@ pub struct Args {
     pub config: Option<String>,
 }
 
+/// Wrapper type around [LevelFilter] to implement the trait [ValueEnum] for better CLI args
+/// integration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct LogLevel(LevelFilter);
 
@@ -67,6 +74,7 @@ impl Display for LogLevel {
 
 impl ValueEnum for LogLevel {
     fn value_variants<'a>() -> &'a [Self] {
+        // TODO: Use macros to generate this array
         &[
             Self(LevelFilter::Off),
             Self(LevelFilter::Error),

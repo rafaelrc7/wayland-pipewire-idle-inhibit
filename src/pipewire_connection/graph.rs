@@ -14,6 +14,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Module responsible to represent and treat the PipeWire Graph, in the context of this app,
+//! composed of [PWObject]s, that can be Nodes, Links or Ports.
+
 use std::collections::{HashMap, HashSet};
 
 use pipewire::{

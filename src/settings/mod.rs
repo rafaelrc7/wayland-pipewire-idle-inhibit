@@ -14,6 +14,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Module responsible with the tool's configuration
+
 use std::{error::Error, path::PathBuf};
 
 use chrono::Duration;
@@ -30,6 +32,7 @@ use crate::pipewire_connection::graph_filter::{NodeFilter, SinkFilter};
 mod cli;
 use cli::Args;
 
+/// Struct that stores the settings that affect the tool behaviour
 #[derive(Deserialize)]
 pub struct Settings {
     #[serde(default = "defalt_media_minimum_duration")]
@@ -63,6 +66,8 @@ impl Settings {
         Ok(settings)
     }
 
+    /// Getter for the media minimum duration with the [chrono::Duration] type. If the set duration
+    /// is 0, [None] is returned, to easily detect if this check is necessary
     pub fn get_media_minimum_duration(&self) -> Option<Duration> {
         match self.media_minimum_duration {
             0 => None,
@@ -70,23 +75,28 @@ impl Settings {
         }
     }
 
+    /// Returns the current log verbosity
     pub fn get_verbosity(&self) -> LevelFilter {
         self.verbosity
     }
 
+    /// Return sink filters
     pub fn get_sink_whitelist(&self) -> &Vec<SinkFilter> {
         &self.sink_whitelist
     }
 
+    /// Return Node filters
     pub fn get_node_blacklist(&self) -> &Vec<NodeFilter> {
         &self.node_blacklist
     }
 }
 
+/// Default media minimum duration, set to 5 seconds
 fn defalt_media_minimum_duration() -> i64 {
     5
 }
 
+/// Default log verbosity, set to [LevelFilter::Warn]
 fn default_verbosity() -> LevelFilter {
     LevelFilter::Warn
 }

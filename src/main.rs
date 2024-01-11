@@ -14,6 +14,9 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Inhibit idle in Wayland compositors when audio is being played through PipeWire, with highly
+//! customisable options
+
 use std::{sync::mpsc, thread};
 
 use signal_hook::{

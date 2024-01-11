@@ -14,6 +14,11 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Manages the connection to the PipeWire server, listening to events and building a graph of
+//! nodes, ports and connections.
+//!
+//! The graph is used to detect if any connection to watched sinks is active.
+
 use std::{
     any::Any,
     cell::RefCell,
@@ -43,24 +48,29 @@ use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, P
 pub mod graph_filter;
 use graph_filter::{NodeFilter, SinkFilter};
 
+/// Events that can be sent to the PipeWire thread
 #[derive(Debug)]
 pub enum PWMsg {
     Terminate,
     GraphUpdated,
 }
 
+/// Events that are fired by the PipeWire thread and must be treated by the caller
 #[derive(Debug)]
 pub enum PWEvent {
     GraphUpdated,
     InhibitIdleState(bool),
 }
 
+/// Wrapper around the PipeWire thread and channel
 pub struct PWThread {
     pw_thread: JoinHandle<()>,
     pw_event_sender: pipewire::channel::Sender<PWMsg>,
 }
 
 impl PWThread {
+    /// Constructor that creates the channel used by the PipeWire [MainLoop] and launches it in
+    /// another thread
     pub fn new<Msg: From<PWEvent> + Send + 'static>(
         pw_event_listener: mpsc::Sender<Msg>,
         sink_whitelist: Vec<SinkFilter>,
@@ -86,16 +96,20 @@ impl PWThread {
         }
     }
 
+    /// Waits for PipeWire [MainLoop] to terminate
     pub fn join(self) -> Result<(), Box<dyn Any + Send>> {
         let PWThread { pw_thread, .. } = self;
         pw_thread.join()
     }
 
+    /// Sends message to PipeWire [MainLoop]
     pub fn send(&self, msg: PWMsg) -> Result<(), PWMsg> {
         self.pw_event_sender.send(msg)
     }
 }
 
+/// PipeWire thread function. Responsible to create PipeWire objects, subscribe to events and run
+/// the [MainLoop]
 fn pw_thread<Msg: From<PWEvent> + 'static>(
     pw_event_listener: mpsc::Sender<Msg>,
     pw_event_queue: pipewire::channel::Receiver<PWMsg>,
@@ -111,10 +125,13 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
     let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
 
+    // Listen to registry global events, that happen when objects when globals are created or
+    // removed.
     let _listener = {
         registry
             .add_listener_local()
             .global({
+                // Object created
                 let registry = Rc::clone(&registry);
                 let graph = Rc::clone(&graph);
                 let pw_event_listener = pw_event_listener.clone();
@@ -123,6 +140,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
                     let registry = Rc::clone(&registry);
                     let graph = Rc::clone(&graph);
 
+                    // Stores only important objects to the algorithm
                     match global.type_ {
                         ObjectType::Node => {
                             registry_global_node(global, registry, graph, pw_event_listener.clone())
@@ -138,6 +156,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
                 }
             })
             .global_remove({
+                // Object Removed
                 let graph = Rc::clone(&graph);
                 let pw_event_listener = pw_event_listener.clone();
 
@@ -151,6 +170,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
     let _receiver = pw_event_queue.attach(&mainloop, {
         let mainloop = mainloop.clone();
 
+        // Treats events sent to the MainLoop thread by the caller
         move |signal: PWMsg| match signal {
             PWMsg::Terminate => mainloop.quit(),
             PWMsg::GraphUpdated => {
@@ -165,6 +185,11 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
     mainloop.run();
 }
 
+/// Handles a new Node object sent by the PipeWire server. Its properties are read and stored in a
+/// [NodeData] object and the object reference is stored in a [Node] [Proxy]. Both are then
+/// inserted into the [PWGraph] shared object.
+///
+/// The code also subscribes to updates to that Node.
 fn registry_global_node<Msg: From<PWEvent> + 'static>(
     node: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
@@ -216,6 +241,8 @@ fn registry_global_node<Msg: From<PWEvent> + 'static>(
         .unwrap();
 }
 
+/// Handles updates to already existent [NodeData]. If necessary, the information is updated in the
+/// object in the [PWGraph].
 fn node_info<Msg: From<PWEvent>>(
     info: &NodeInfo,
     graph: Rc<RefCell<PWGraph>>,
@@ -249,6 +276,8 @@ fn node_info<Msg: From<PWEvent>>(
     }
 }
 
+/// Helper function that tries to decode a [Direction] from a string, received from the PipeWire
+/// server
 fn direction_from_string(direction: &str) -> Option<Direction> {
     match direction {
         "out" => Some(Direction::Output),
@@ -257,6 +286,11 @@ fn direction_from_string(direction: &str) -> Option<Direction> {
     }
 }
 
+/// Handles a new Port object sent by the PipeWire server. Its properties are read and stored in a
+/// [PortData] object and the object reference is stored in a [Port] [Proxy]. Both are then
+/// inserted into the [PWGraph] shared object.
+///
+/// The code also subscribes to updates to that Port.
 fn registry_global_port<Msg: From<PWEvent> + 'static>(
     port: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
@@ -306,6 +340,8 @@ fn registry_global_port<Msg: From<PWEvent> + 'static>(
         .unwrap();
 }
 
+/// Handles updates to already existent [PortData]. If necessary, the information is updated in the
+/// object in the [PWGraph].
 fn port_info<Msg: From<PWEvent>>(
     info: &PortInfo,
     graph: Rc<RefCell<PWGraph>>,
@@ -335,6 +371,11 @@ fn port_info<Msg: From<PWEvent>>(
     }
 }
 
+/// Handles a new Link object sent by the PipeWire server. Its properties are read and stored in a
+/// [LinkData] object and the object reference is stored in a [Link] [Proxy]. Both are then
+/// inserted into the [PWGraph] shared object.
+///
+/// The code also subscribes to updates to that Port.
 fn registry_global_link<Msg: From<PWEvent> + 'static>(
     link: &GlobalObject<ForeignDict>,
     registry: Rc<Registry>,
@@ -384,6 +425,11 @@ fn registry_global_link<Msg: From<PWEvent> + 'static>(
         .unwrap();
 }
 
+/// Handles updates to already existent [LinkData]. If necessary, the information is updated in the
+/// object in the [PWGraph].
+///
+/// This event is specially important, as the state of the links, stored in the [LinkData::active]
+/// field, is the main information used to search for active clients.
 fn link_info<Msg: From<PWEvent>>(
     info: &LinkInfo,
     graph: Rc<RefCell<PWGraph>>,
@@ -418,6 +464,7 @@ fn link_info<Msg: From<PWEvent>>(
     }
 }
 
+/// Handles a removed object from the [PWGraph]
 fn registry_global_remove<Msg: From<PWEvent>>(
     id: Id,
     graph: Rc<RefCell<PWGraph>>,

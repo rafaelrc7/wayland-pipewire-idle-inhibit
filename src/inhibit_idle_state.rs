@@ -14,17 +14,22 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Helper to manage the idle inhibiting state. This module is used to treat PipeWire events and
+//! send messages if and when idle should be inhibited, treating the minimum sound duration.
+
 use std::sync::{mpsc, Arc, RwLock};
 
 use chrono::Duration;
 use log::{debug, trace};
 use timer::{Guard, Timer};
 
+/// Module Event message type
 #[derive(Debug)]
 pub enum InhibitIdleStateEvent {
     InhibitIdle(bool),
 }
 
+/// Manager of the idle inhibit state
 pub struct InhibitIdleState<Msg: From<InhibitIdleStateEvent>> {
     inhibit_idle_timout_callback: Timer,
     inhibit_idle_timout_callback_guard: Option<Guard>,
@@ -47,6 +52,9 @@ impl<Msg: From<InhibitIdleStateEvent> + Send + 'static> InhibitIdleState<Msg> {
         }
     }
 
+    /// Wrapper function to update the inhibit idle state. It only updates the value if necessary,
+    /// and manages the timer. When a call is made to change the state, it starts a timer with the
+    /// set minimum duration that actually executes the update of the is_idle_inhibited field.
     pub fn set_is_idle_inhibited(&mut self, is_idle_inhibited: bool) {
         if let (Some(inhibit_idle_timout), true) = (self.inhibit_idle_timout, is_idle_inhibited) {
             if self.inhibit_idle_timout_callback_guard.is_some() {
@@ -82,6 +90,7 @@ impl<Msg: From<InhibitIdleStateEvent> + Send + 'static> InhibitIdleState<Msg> {
         }
     }
 
+    /// Private function that accesses the reference of the state and updates its value
     fn update_is_idle_inhibited(
         is_idle_inhibited_ref: Arc<RwLock<bool>>,
         inhibit_idle_callback: mpsc::Sender<Msg>,
