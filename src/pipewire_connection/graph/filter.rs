@@ -17,7 +17,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use super::graph::NodeData;
+use super::NodeData;
 
 pub trait Filter<T> {
     fn matches(&self, data: &T) -> bool;

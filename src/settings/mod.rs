@@ -27,7 +27,7 @@ use figment::{
 use log::LevelFilter;
 use serde::Deserialize;
 
-use crate::pipewire_connection::graph_filter::{NodeFilter, SinkFilter};
+use crate::pipewire_connection::graph::filter::{NodeFilter, SinkFilter};
 
 mod cli;
 use cli::Args;

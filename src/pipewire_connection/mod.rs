@@ -45,8 +45,7 @@ use log::debug;
 pub mod graph;
 use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy};
 
-pub mod graph_filter;
-use graph_filter::{NodeFilter, SinkFilter};
+use graph::filter::{NodeFilter, SinkFilter};
 
 /// Events that can be sent to the PipeWire thread
 #[derive(Debug)]

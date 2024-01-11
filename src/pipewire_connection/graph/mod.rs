@@ -29,7 +29,8 @@ use pipewire::{
 
 use log::{debug, trace, warn};
 
-use super::graph_filter::{Filter, NodeFilter, SinkFilter};
+pub mod filter;
+use filter::{Filter, NodeFilter, SinkFilter};
 
 pub type Id = u32;
 
