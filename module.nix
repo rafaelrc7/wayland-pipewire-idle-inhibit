@@ -1,10 +1,12 @@
 { config, lib, pkgs, ... }:
 with lib;
-let cfg = config.services.wayland-pipewire-idle-inhibit;
-    tomlFormat = pkgs.formats.toml { };
-    configFile = tomlFormat.generate "wayland-pipewire-idle-inhibit.toml" cfg.settings;
-in {
-  options.services.wayland-pipewire-idle-inhibit  = {
+let
+  cfg = config.services.wayland-pipewire-idle-inhibit;
+  tomlFormat = pkgs.formats.toml { };
+  configFile = tomlFormat.generate "wayland-pipewire-idle-inhibit.toml" cfg.settings;
+in
+{
+  options.services.wayland-pipewire-idle-inhibit = {
     enable = mkEnableOption "wayland-pipewire-idle-inhibit";
 
     settings = mkOption {
@@ -16,10 +18,16 @@ in {
           verbosity = "WARN";
           media_minimum_duration = 5;
           node_blacklist = [
-              { name = "spotify" }
-          ]
+              { name = "spotify"; }
+          ];
         }
       '';
+    };
+
+    systemdTarget = mkOption {
+      type = lib.types.str;
+      default = "graphical-session.target";
+      example = "sway-session.target";
     };
   };
 
@@ -30,10 +38,9 @@ in {
         Documentation = "https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit";
       };
 
-      Install.WantedBy = [ "graphical-session.target" ];
+      Install.WantedBy = [ cfg.systemdTarget ];
 
       Service = {
-        Type = "simple";
         ExecStart = "${pkgs.wayland-pipewire-idle-inhibit}/bin/wayland-pipewire-idle-inhibit --config ${configFile}";
         Restart = "always";
         RestartSec = 10;

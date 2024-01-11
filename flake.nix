@@ -14,7 +14,7 @@
         inputs.flake-parts.flakeModules.easyOverlay
       ];
       flake = {
-        homeManagerModules.wayland-pipewire-idle-inhibit = import ./module.nix;
+        homeModule = import ./module.nix;
       };
       systems = [ "x86_64-linux" ];
       perSystem = { config, pkgs, ... }: {
