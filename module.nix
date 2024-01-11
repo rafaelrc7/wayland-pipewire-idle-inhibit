@@ -9,10 +9,17 @@ in
   options.services.wayland-pipewire-idle-inhibit = {
     enable = mkEnableOption "wayland-pipewire-idle-inhibit";
 
+    package = mkOption {
+      type = types.package;
+      default = pkgs.callPackage ./default.nix { };
+      description = ''
+        The wayland-pipewire-idle-inhibit package to use.
+      '';
+    };
+
     settings = mkOption {
       type = tomlFormat.type;
       default = { };
-      description = "Configuration for wayland-pipewire-idle-inhibit";
       example = literalExpression ''
         {
           verbosity = "WARN";
@@ -22,12 +29,18 @@ in
           ];
         }
       '';
+      description = ''
+        Configuration for wayland-pipewire-idle-inhibit.
+      '';
     };
 
     systemdTarget = mkOption {
-      type = lib.types.str;
+      type = types.str;
       default = "graphical-session.target";
       example = "sway-session.target";
+      description = ''
+        systemd target to bind to.
+      '';
     };
   };
 
@@ -41,7 +54,7 @@ in
       Install.WantedBy = [ cfg.systemdTarget ];
 
       Service = {
-        ExecStart = "${pkgs.wayland-pipewire-idle-inhibit}/bin/wayland-pipewire-idle-inhibit --config ${configFile}";
+        ExecStart = "${cfg.package}/bin/wayland-pipewire-idle-inhibit --config ${configFile}";
         Restart = "always";
         RestartSec = 10;
       };

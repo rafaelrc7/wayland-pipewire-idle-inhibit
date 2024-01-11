@@ -108,6 +108,9 @@ node_blacklist = [
 
 ## Thanks
 
+- [Misterio77](https://github.com/Misterio77/) For help with the creation of
+  the home-manager module.
+
 This project was inspired by
 
 - [SwayAudioIdleInhibit](https://github.com/ErikReider/SwayAudioIdleInhibit)
