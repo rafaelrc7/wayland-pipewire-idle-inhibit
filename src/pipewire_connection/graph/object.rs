@@ -41,15 +41,15 @@ pub struct NodeData {
 }
 
 impl NodeData {
-    pub fn get_name(&self) -> String {
+    pub fn get_name(&self) -> &str {
         if let Some(description) = &self.description {
-            description.clone()
+            description
         } else if let Some(nick) = &self.nick {
-            nick.clone()
+            nick
         } else if let Some(name) = &self.name {
-            name.clone()
+            name
         } else {
-            String::default()
+            ""
         }
     }
 
