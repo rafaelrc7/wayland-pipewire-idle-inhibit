@@ -114,7 +114,7 @@ impl PWGraph {
 
     pub fn update(&mut self, id: Id, new_data: PWObjectData) -> bool {
         trace!(target: "PWGraph::update", "Called for object with ID {id}");
-        let old_obj = match self.objects.remove(&id) {
+        let obj = match self.objects.remove(&id) {
             Some(o) => o,
             None => {
                 warn!(target: "PWGraph::update", "Tried to update inexistent object with ID {id}");
@@ -124,31 +124,21 @@ impl PWGraph {
 
         if new_data.is_empty() {
             trace!(target: "PWGraph::update", "Tried to update object with ID {id} but new_data is empty");
-            self.objects.insert(id, old_obj);
+            self.objects.insert(id, obj);
             return false;
         }
 
         match new_data {
             PWObjectData::Node(new_data) => {
-                let PWObject::Node {
-                    data: old_data,
-                    proxy,
-                } = old_obj
-                else {
+                let PWObject::Node { mut data, proxy } = obj else {
                     warn!(target: "PWGraph::update", "Tried to update Node, but object of ID {id} is not a Node");
-                    self.objects.insert(id, old_obj);
+                    self.objects.insert(id, obj);
                     return false;
                 };
 
-                if new_data == old_data {
+                if data == new_data {
                     trace!(target: "PWGraph::update", "Tried to update Node ({id}), but it is unmodified");
-                    self.objects.insert(
-                        id,
-                        PWObject::Node {
-                            data: old_data,
-                            proxy,
-                        },
-                    );
+                    self.objects.insert(id, PWObject::Node { data, proxy });
                     return false;
                 }
 
@@ -158,14 +148,13 @@ impl PWGraph {
                 } = new_data;
 
                 let NodeData {
-                    media_class: ref old_media_class,
-                    ..
-                } = old_data;
+                    ref media_class, ..
+                } = data;
 
-                if new_media_class != old_media_class {
+                if media_class != new_media_class {
                     if let Some(new_media_class) = new_media_class {
-                        if let Some(old_media_class) = old_media_class {
-                            if old_media_class.contains("Sink") {
+                        if let Some(media_class) = media_class {
+                            if media_class.contains("Sink") {
                                 self.sinks.remove(&id);
                             }
                         }
@@ -178,36 +167,21 @@ impl PWGraph {
                     }
                 }
 
-                let new_data = NodeData::join(old_data.clone(), new_data);
-                debug!(target: "PWGraph::update", "Updated Node ({id}) {:?} -> {:?}", old_data, new_data);
-                self.objects.insert(
-                    id,
-                    PWObject::Node {
-                        data: new_data,
-                        proxy,
-                    },
-                );
+                debug!(target: "PWGraph::update", "Updated Node ({id}) from {:?}", data);
+                data.update(new_data);
+                debug!(target: "PWGraph::update", "Updated Node ({id}) to {:?}", data);
+                self.objects.insert(id, PWObject::Node { data, proxy });
             }
             PWObjectData::Port(new_data) => {
-                let PWObject::Port {
-                    data: old_data,
-                    proxy,
-                } = old_obj
-                else {
+                let PWObject::Port { mut data, proxy } = obj else {
                     warn!(target: "PWGraph::update", "Tried to update Port, but object of ID {id} is not a Port");
-                    self.objects.insert(id, old_obj);
+                    self.objects.insert(id, obj);
                     return false;
                 };
 
-                if new_data == old_data {
+                if data == new_data {
                     trace!(target: "PWGraph::update", "Tried to update Port ({id}), but it is unmodified");
-                    self.objects.insert(
-                        id,
-                        PWObject::Port {
-                            data: old_data,
-                            proxy,
-                        },
-                    );
+                    self.objects.insert(id, PWObject::Port { data, proxy });
                     return false;
                 }
 
@@ -217,22 +191,18 @@ impl PWGraph {
                     ..
                 } = new_data;
                 let PortData {
-                    node_id: old_node_id,
-                    direction: old_direction,
-                    ..
-                } = old_data;
+                    node_id, direction, ..
+                } = data;
 
-                if new_node_id != old_node_id || new_direction != old_direction {
+                if node_id != new_node_id || direction != new_direction {
                     if let (Some(new_node_id), Some(new_direction)) = (new_node_id, new_direction) {
-                        if let (Some(old_node_id), Some(old_direction)) =
-                            (old_node_id, old_direction)
-                        {
-                            match old_direction {
+                        if let (Some(node_id), Some(direction)) = (node_id, direction) {
+                            match direction {
                                 Direction::Input => {
-                                    self.get_node_input_ports(&old_node_id).remove(&id);
+                                    self.get_node_input_ports(&node_id).remove(&id);
                                 }
                                 Direction::Output => {
-                                    self.get_node_output_ports(&old_node_id).remove(&id);
+                                    self.get_node_output_ports(&node_id).remove(&id);
                                 }
                                 _ => {}
                             }
@@ -249,36 +219,21 @@ impl PWGraph {
                     }
                 }
 
-                let new_data = PortData::join(old_data.clone(), new_data);
-                debug!(target: "PWGraph::update", "Updated Port ({id}) {:?} -> {:?}", old_data, new_data);
-                self.objects.insert(
-                    id,
-                    PWObject::Port {
-                        data: new_data,
-                        proxy,
-                    },
-                );
+                debug!(target: "PWGraph::update", "Updated Port ({id}) from {:?}", data);
+                data.update(new_data);
+                debug!(target: "PWGraph::update", "Updated Port ({id}) to {:?}", data);
+                self.objects.insert(id, PWObject::Port { data, proxy });
             }
             PWObjectData::Link(new_data) => {
-                let PWObject::Link {
-                    data: old_data,
-                    proxy,
-                } = old_obj
-                else {
+                let PWObject::Link { mut data, proxy } = obj else {
                     warn!(target: "PWGraph::update", "Tried to update Link, but object of ID {id} is not a Link");
-                    self.objects.insert(id, old_obj);
+                    self.objects.insert(id, obj);
                     return false;
                 };
 
-                if new_data == old_data {
+                if data == new_data {
                     trace!(target: "PWGraph::update", "Tried to update Link ({id}), but it is unmodified");
-                    self.objects.insert(
-                        id,
-                        PWObject::Link {
-                            data: old_data,
-                            proxy,
-                        },
-                    );
+                    self.objects.insert(id, PWObject::Link { data, proxy });
                     return false;
                 }
 
@@ -288,38 +243,33 @@ impl PWGraph {
                     ..
                 } = new_data;
                 let LinkData {
-                    input_port: old_input_port,
-                    output_port: old_output_port,
+                    input_port,
+                    output_port,
                     ..
-                } = old_data;
+                } = data;
 
-                if new_output_port != old_output_port {
+                if output_port != new_output_port {
                     if let Some(new_output_port) = new_output_port {
-                        if let Some(old_output_port) = old_output_port {
-                            self.get_links_from_port(&old_output_port).remove(&id);
+                        if let Some(output_port) = output_port {
+                            self.get_links_from_port(&output_port).remove(&id);
                         }
                         self.get_links_from_port(&new_output_port).insert(id);
                     }
                 }
 
-                if new_input_port != old_input_port {
+                if input_port != new_input_port {
                     if let Some(new_input_port) = new_input_port {
-                        if let Some(old_input_port) = old_input_port {
-                            self.get_links_to_port(&old_input_port).remove(&id);
+                        if let Some(input_port) = input_port {
+                            self.get_links_to_port(&input_port).remove(&id);
                         }
                         self.get_links_to_port(&new_input_port).insert(id);
                     }
                 }
 
-                let new_data = LinkData::join(old_data.clone(), new_data);
-                debug!(target: "PWGraph::update", "Updated Link ({id}) {:?} -> {:?}", old_data, new_data);
-                self.objects.insert(
-                    id,
-                    PWObject::Link {
-                        data: new_data,
-                        proxy,
-                    },
-                );
+                debug!(target: "PWGraph::update", "Updated Link ({id}) from {:?}", data);
+                data.update(new_data);
+                debug!(target: "PWGraph::update", "Updated Link ({id}) to {:?}", data);
+                self.objects.insert(id, PWObject::Link { data, proxy });
             }
         };
 

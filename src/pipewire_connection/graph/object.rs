@@ -63,55 +63,33 @@ impl NodeData {
             && self.media_software.is_none()
     }
 
-    pub fn join(old: Self, new: Self) -> Self {
-        let NodeData {
-            name: old_name,
-            app_name: old_app_name,
-            description: old_description,
-            nick: old_nick,
-            media_class: old_media_class,
-            media_role: old_media_role,
-            media_software: old_media_software,
-        } = old;
-        let NodeData {
-            name: new_name,
-            app_name: new_app_name,
-            description: new_description,
-            nick: new_nick,
-            media_class: new_media_class,
-            media_role: new_media_role,
-            media_software: new_media_software,
-        } = new;
+    pub fn update(&mut self, new: Self) {
+        if let Some(name) = new.name {
+            self.name = Some(name);
+        }
 
-        NodeData {
-            name: match new_name {
-                None => old_name,
-                new_name => new_name,
-            },
-            app_name: match new_app_name {
-                None => old_app_name,
-                new_app_name => new_app_name,
-            },
-            description: match new_description {
-                None => old_description,
-                new_description => new_description,
-            },
-            nick: match new_nick {
-                None => old_nick,
-                new_nick => new_nick,
-            },
-            media_class: match new_media_class {
-                None => old_media_class,
-                new_media_class => new_media_class,
-            },
-            media_role: match new_media_role {
-                None => old_media_role,
-                new_media_role => new_media_role,
-            },
-            media_software: match new_media_software {
-                None => old_media_software,
-                new_media_software => new_media_software,
-            },
+        if let Some(app_name) = new.app_name {
+            self.app_name = Some(app_name);
+        }
+
+        if let Some(description) = new.description {
+            self.description = Some(description);
+        }
+
+        if let Some(nick) = new.nick {
+            self.nick = Some(nick);
+        }
+
+        if let Some(media_class) = new.media_class {
+            self.media_class = Some(media_class);
+        }
+
+        if let Some(media_role) = new.media_role {
+            self.media_role = Some(media_role);
+        }
+
+        if let Some(media_software) = new.media_software {
+            self.media_software = Some(media_software);
         }
     }
 }
@@ -132,37 +110,21 @@ impl PortData {
             && self.is_terminal.is_none()
     }
 
-    pub fn join(old: Self, new: Self) -> Self {
-        let PortData {
-            name: old_name,
-            node_id: old_node_id,
-            direction: old_direction,
-            is_terminal: old_is_terminal,
-        } = old;
-        let PortData {
-            name: new_name,
-            node_id: new_node_id,
-            direction: new_direction,
-            is_terminal: new_is_terminal,
-        } = new;
+    pub fn update(&mut self, new: Self) {
+        if let Some(name) = new.name {
+            self.name = Some(name);
+        }
 
-        PortData {
-            name: match new_name {
-                None => old_name,
-                new_name => new_name,
-            },
-            node_id: match new_node_id {
-                None => old_node_id,
-                new_node_id => new_node_id,
-            },
-            direction: match new_direction {
-                None => old_direction,
-                new_direction => new_direction,
-            },
-            is_terminal: match new_is_terminal {
-                None => old_is_terminal,
-                new_is_terminal => new_is_terminal,
-            },
+        if let Some(node_id) = new.node_id {
+            self.node_id = Some(node_id);
+        }
+
+        if let Some(direction) = new.direction {
+            self.direction = Some(direction);
+        }
+
+        if let Some(is_terminal) = new.is_terminal {
+            self.is_terminal = Some(is_terminal);
         }
     }
 }
@@ -179,31 +141,17 @@ impl LinkData {
         self.input_port.is_none() && self.output_port.is_none() && self.active.is_none()
     }
 
-    pub fn join(old: Self, new: Self) -> Self {
-        let LinkData {
-            input_port: old_input_port,
-            output_port: old_output_port,
-            active: old_active,
-        } = old;
-        let LinkData {
-            input_port: new_input_port,
-            output_port: new_output_port,
-            active: new_active,
-        } = new;
+    pub fn update(&mut self, new: Self) {
+        if let Some(input_port) = new.input_port {
+            self.input_port = Some(input_port);
+        }
 
-        LinkData {
-            input_port: match new_input_port {
-                None => old_input_port,
-                new_input_port => new_input_port,
-            },
-            output_port: match new_output_port {
-                None => old_output_port,
-                new_output_port => new_output_port,
-            },
-            active: match new_active {
-                None => old_active,
-                new_active => new_active,
-            },
+        if let Some(output_port) = new.output_port {
+            self.output_port = Some(output_port);
+        }
+
+        if let Some(active) = new.active {
+            self.active = Some(active);
         }
     }
 }
