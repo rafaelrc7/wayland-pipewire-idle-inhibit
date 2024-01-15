@@ -98,25 +98,37 @@ impl Filter<NodeData> for NodeFilter {
         }
 
         if let Some(app_name) = &self.app_name {
-            if !app_name.is_match(&node.app_name.clone().unwrap_or_default()) {
+            let Some(node_app_name) = &node.app_name else {
+                return false;
+            };
+            if !app_name.is_match(node_app_name) {
                 return false;
             }
         }
 
         if let Some(media_class) = &self.media_class {
-            if !media_class.is_match(&node.media_class.clone().unwrap_or_default()) {
+            let Some(node_media_class) = &node.media_class else {
+                return false;
+            };
+            if !media_class.is_match(node_media_class) {
                 return false;
             }
         }
 
         if let Some(media_role) = &self.media_role {
-            if !media_role.is_match(&node.media_role.clone().unwrap_or_default()) {
+            let Some(node_media_role) = &node.media_role else {
+                return false;
+            };
+            if !media_role.is_match(node_media_role) {
                 return false;
             }
         }
 
         if let Some(media_software) = &self.media_software {
-            if !media_software.is_match(&node.media_software.clone().unwrap_or_default()) {
+            let Some(node_media_software) = &node.media_software else {
+                return false;
+            };
+            if !media_software.is_match(node_media_software) {
                 return false;
             }
         }
