@@ -66,7 +66,7 @@ services.wayland-pipewire-idle-inhibit = {
     ];
     node_blacklist = [
       { name = "spotify"; }
-      { name = "Music Player Daemon"; }
+      { app_name = "Music Player Daemon"; }
     ];
   };
 };
