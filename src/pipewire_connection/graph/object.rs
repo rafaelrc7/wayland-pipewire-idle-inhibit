@@ -42,9 +42,7 @@ pub struct NodeData {
 
 impl NodeData {
     pub fn get_name(&self) -> String {
-        if let Some(app_name) = &self.app_name {
-            app_name.clone()
-        } else if let Some(description) = &self.description {
+        if let Some(description) = &self.description {
             description.clone()
         } else if let Some(nick) = &self.nick {
             nick.clone()

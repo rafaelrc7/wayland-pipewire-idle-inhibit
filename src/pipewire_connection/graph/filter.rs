@@ -74,6 +74,10 @@ pub struct NodeFilter {
 
     #[serde(with = "serde_regex")]
     #[serde(default)]
+    app_name: Option<Regex>,
+
+    #[serde(with = "serde_regex")]
+    #[serde(default)]
     media_class: Option<Regex>,
 
     #[serde(with = "serde_regex")]
@@ -89,6 +93,12 @@ impl Filter<NodeData> for NodeFilter {
     fn matches(&self, node: &NodeData) -> bool {
         if let Some(name) = &self.name {
             if !name.is_match(&node.get_name()) {
+                return false;
+            }
+        }
+
+        if let Some(app_name) = &self.app_name {
+            if !app_name.is_match(&node.app_name.clone().unwrap_or_default()) {
                 return false;
             }
         }

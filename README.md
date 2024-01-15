@@ -155,7 +155,8 @@ playing media. If the node matches any of the filters, it will be ignored.
 
 #### Supported fields
 
-- `name`: Regex
+- `name`: Regex. This name is the same used by Helvum for the node.
+- `app_name`: Regex
 - `media_class`: Regex
 - `media_role`: Regex
 - `media_software`: Regex
