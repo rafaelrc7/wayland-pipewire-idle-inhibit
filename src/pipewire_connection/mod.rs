@@ -43,7 +43,10 @@ use pipewire::{
 use log::debug;
 
 pub mod graph;
-use graph::{Id, LinkData, NodeData, PWGraph, PWObject, PWObjectData, PortData, Proxy};
+use graph::{
+    object::{Id, LinkData, NodeData, PWObject, PWObjectData, PortData, Proxy},
+    PWGraph,
+};
 
 use graph::filter::{NodeFilter, SinkFilter};
 
