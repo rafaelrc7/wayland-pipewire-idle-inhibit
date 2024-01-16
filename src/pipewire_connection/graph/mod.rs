@@ -59,7 +59,7 @@ impl PWGraph {
                 let NodeData {
                     ref media_class, ..
                 } = data;
-                debug!(target: "PWGraph::insert", "Node ({id}) '{}'; {:?}", data.get_name(), data);
+                debug!(target: "PWGraph::insert", "Node ({id}) '{}'; {:?}", data.get_name().unwrap_or_default(), data);
                 if let Some(media_class) = media_class {
                     if media_class.contains("Sink")
                         && (self.sink_whitelist.is_empty()

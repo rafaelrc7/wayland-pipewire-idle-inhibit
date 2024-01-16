@@ -57,7 +57,10 @@ pub struct SinkFilter {
 impl Filter<NodeData> for SinkFilter {
     fn matches(&self, node: &NodeData) -> bool {
         if let Some(name) = &self.name {
-            if !name.is_match(node.get_name()) {
+            let Some(node_name) = node.get_name() else {
+                return false;
+            };
+            if !name.is_match(node_name) {
                 return false;
             }
         }
@@ -92,7 +95,10 @@ pub struct NodeFilter {
 impl Filter<NodeData> for NodeFilter {
     fn matches(&self, node: &NodeData) -> bool {
         if let Some(name) = &self.name {
-            if !name.is_match(node.get_name()) {
+            let Some(node_name) = node.get_name() else {
+                return false;
+            };
+            if !name.is_match(node_name) {
                 return false;
             }
         }

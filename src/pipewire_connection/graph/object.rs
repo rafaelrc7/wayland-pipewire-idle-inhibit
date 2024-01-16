@@ -41,15 +41,15 @@ pub struct NodeData {
 }
 
 impl NodeData {
-    pub fn get_name(&self) -> &str {
+    pub fn get_name(&self) -> Option<&str> {
         if let Some(description) = &self.description {
-            description
+            Some(description)
         } else if let Some(nick) = &self.nick {
-            nick
+            Some(nick)
         } else if let Some(name) = &self.name {
-            name
+            Some(name)
         } else {
-            ""
+            None
         }
     }
 
