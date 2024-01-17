@@ -22,29 +22,25 @@ use super::NodeData;
 pub trait Filter<T> {
     fn matches(&self, data: &T) -> bool;
 
-    fn matches_all(filters: &Vec<Self>, data: &T) -> bool
+    fn matches_all(filters: &[Self], data: &T) -> bool
     where
         Self: Sized,
     {
-        for filter in filters {
-            if !filter.matches(data) {
-                return false;
-            }
-        }
-        true
+        filters.iter().all(|f| f.matches(data))
     }
 
-    fn matches_any(filters: &Vec<Self>, data: &T) -> bool
+    fn matches_any(filters: &[Self], data: &T) -> bool
     where
         Self: Sized,
     {
-        for filter in filters {
-            if filter.matches(data) {
-                return true;
-            }
-        }
-        false
+        filters.iter().any(|f| f.matches(data))
     }
+}
+
+fn matches_property(filter: &Option<Regex>, property: Option<&str>) -> bool {
+    filter
+        .as_ref()
+        .map_or(true, |f| property.map_or(false, |p| f.is_match(p)))
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -56,16 +52,7 @@ pub struct SinkFilter {
 
 impl Filter<NodeData> for SinkFilter {
     fn matches(&self, node: &NodeData) -> bool {
-        if let Some(name) = &self.name {
-            let Some(node_name) = node.get_name() else {
-                return false;
-            };
-            if !name.is_match(node_name) {
-                return false;
-            }
-        }
-
-        true
+        matches_property(&self.name, node.get_name())
     }
 }
 
@@ -94,51 +81,10 @@ pub struct NodeFilter {
 
 impl Filter<NodeData> for NodeFilter {
     fn matches(&self, node: &NodeData) -> bool {
-        if let Some(name) = &self.name {
-            let Some(node_name) = node.get_name() else {
-                return false;
-            };
-            if !name.is_match(node_name) {
-                return false;
-            }
-        }
-
-        if let Some(app_name) = &self.app_name {
-            let Some(node_app_name) = &node.app_name else {
-                return false;
-            };
-            if !app_name.is_match(node_app_name) {
-                return false;
-            }
-        }
-
-        if let Some(media_class) = &self.media_class {
-            let Some(node_media_class) = &node.media_class else {
-                return false;
-            };
-            if !media_class.is_match(node_media_class) {
-                return false;
-            }
-        }
-
-        if let Some(media_role) = &self.media_role {
-            let Some(node_media_role) = &node.media_role else {
-                return false;
-            };
-            if !media_role.is_match(node_media_role) {
-                return false;
-            }
-        }
-
-        if let Some(media_software) = &self.media_software {
-            let Some(node_media_software) = &node.media_software else {
-                return false;
-            };
-            if !media_software.is_match(node_media_software) {
-                return false;
-            }
-        }
-
-        true
+        matches_property(&self.name, node.get_name())
+            && matches_property(&self.app_name, node.app_name.as_deref())
+            && matches_property(&self.media_class, node.media_class.as_deref())
+            && matches_property(&self.media_role, node.media_role.as_deref())
+            && matches_property(&self.media_software, node.media_software.as_deref())
     }
 }
