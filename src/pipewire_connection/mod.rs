@@ -80,16 +80,13 @@ impl PWThread {
     ) -> Self {
         let (pw_event_sender, pw_event_queue) = pipewire::channel::channel();
 
-        let pw_thread = thread::spawn({
-            let pw_event_listener = pw_event_listener.clone();
-            move || {
-                pw_thread(
-                    pw_event_listener,
-                    pw_event_queue,
-                    sink_whitelist,
-                    node_blacklist,
-                )
-            }
+        let pw_thread = thread::spawn(move || {
+            pw_thread(
+                pw_event_listener,
+                pw_event_queue,
+                sink_whitelist,
+                node_blacklist,
+            )
         });
 
         PWThread {
@@ -99,9 +96,10 @@ impl PWThread {
     }
 
     /// Waits for PipeWire [MainLoop] to terminate
+    ///
+    /// As this function joins with the thread, it takes ownership of the [PWThread] value.
     pub fn join(self) -> Result<(), Box<dyn Any + Send>> {
-        let PWThread { pw_thread, .. } = self;
-        pw_thread.join()
+        self.pw_thread.join()
     }
 
     /// Sends message to PipeWire [MainLoop]
@@ -119,13 +117,13 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
     node_blacklist: Vec<NodeFilter>,
 ) {
     pipewire::init();
+
     let mainloop = MainLoop::new().expect("Failed to create mainloop.");
-
-    let graph = Rc::new(RefCell::new(PWGraph::new(sink_whitelist, node_blacklist)));
-
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
     let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
+
+    let graph = Rc::new(RefCell::new(PWGraph::new(sink_whitelist, node_blacklist)));
 
     // Listen to registry global events, that happen when objects when globals are created or
     // removed.
