@@ -42,15 +42,10 @@ pub struct NodeData {
 
 impl NodeData {
     pub fn get_name(&self) -> Option<&str> {
-        if let Some(description) = &self.description {
-            Some(description)
-        } else if let Some(nick) = &self.nick {
-            Some(nick)
-        } else if let Some(name) = &self.name {
-            Some(name)
-        } else {
-            None
-        }
+        self.description
+            .as_deref()
+            .or(self.nick.as_deref())
+            .or(self.name.as_deref())
     }
 
     pub fn is_empty(&self) -> bool {
