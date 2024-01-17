@@ -14,6 +14,8 @@
 //
 // SPDX-License-Identifier: GPL-3.0-only
 
+//! Object types used to represent [super::PWGraph] elements.
+
 use pipewire::{
     link::{Link, LinkListener},
     node::{Node, NodeListener},
@@ -22,13 +24,20 @@ use pipewire::{
     spa::Direction,
 };
 
+/// Type used by the [pipewire] crate API to represent object ids.
 pub type Id = u32;
 
+/// Generic struct that joins a [pipewire] [ProxyT], a reference to a global object, and its
+/// respective [Listener].
 pub struct Proxy<TProxy: ProxyT, TListener: Listener> {
     pub proxy: TProxy,
     pub listener: TListener,
 }
 
+/// Struct representing relevant data of a [pipewire::node::Node] used by the app.
+///
+/// When the global object is first registered, it comes without data, and its fields may be
+/// optionally filled by update events. Thus, all fields are [Option]s.
 #[derive(PartialEq, Debug, Clone)]
 pub struct NodeData {
     pub name: Option<String>,
@@ -41,6 +50,11 @@ pub struct NodeData {
 }
 
 impl NodeData {
+    /// Gets a "pretty" node name.
+    ///
+    /// Based on the way [Helvum](https://gitlab.freedesktop.org/pipewire/helvum) does it. The
+    /// compatibility with Helvum makes it easy to use it to make [super::filter::NodeFilter]s
+    /// using the node name.
     pub fn get_name(&self) -> Option<&str> {
         self.description
             .as_deref()
@@ -48,6 +62,9 @@ impl NodeData {
             .or(self.name.as_deref())
     }
 
+    /// Checks if any of the fields is [Some]
+    ///
+    /// Returns true if any field is [Some], false otherwise.
     pub fn is_empty(&self) -> bool {
         self.name.is_none()
             && self.app_name.is_none()
@@ -58,6 +75,10 @@ impl NodeData {
             && self.media_software.is_none()
     }
 
+    /// Updates fields if new data is give.
+    ///
+    /// [pipewire] update events don't provide already existing data, only new one. Thus, only
+    /// [Some] values should be used, as it represents data that should replace the current one.
     pub fn update(&mut self, new: Self) {
         if let Some(name) = new.name {
             self.name = Some(name);
@@ -89,6 +110,10 @@ impl NodeData {
     }
 }
 
+/// Struct representing relevant data of a [pipewire::port::Port] used by the app.
+///
+/// When the global object is first registered, it comes without data, and its fields may be
+/// optionally filled by update events. Thus, all fields are [Option]s.
 #[derive(PartialEq, Debug, Clone)]
 pub struct PortData {
     pub name: Option<String>,
@@ -98,6 +123,9 @@ pub struct PortData {
 }
 
 impl PortData {
+    /// Checks if any of the fields is [Some]
+    ///
+    /// Returns true if any field is [Some], false otherwise.
     pub fn is_empty(&self) -> bool {
         self.name.is_none()
             && self.node_id.is_none()
@@ -105,6 +133,10 @@ impl PortData {
             && self.is_terminal.is_none()
     }
 
+    /// Updates fields if new data is give.
+    ///
+    /// [pipewire] update events don't provide already existing data, only new one. Thus, only
+    /// [Some] values should be used, as it represents data that should replace the current one.
     pub fn update(&mut self, new: Self) {
         if let Some(name) = new.name {
             self.name = Some(name);
@@ -124,6 +156,10 @@ impl PortData {
     }
 }
 
+/// Struct representing relevant data of a [pipewire::link::Link] used by the app.
+///
+/// When the global object is first registered, it comes without data, and its fields may be
+/// optionally filled by update events. Thus, all fields are [Option]s.
 #[derive(PartialEq, Debug, Clone)]
 pub struct LinkData {
     pub input_port: Option<Id>,
@@ -132,10 +168,17 @@ pub struct LinkData {
 }
 
 impl LinkData {
+    /// Checks if any of the fields is [Some]
+    ///
+    /// Returns true if any field is [Some], false otherwise.
     pub fn is_empty(&self) -> bool {
         self.input_port.is_none() && self.output_port.is_none() && self.active.is_none()
     }
 
+    /// Updates fields if new data is give.
+    ///
+    /// [pipewire] update events don't provide already existing data, only new one. Thus, only
+    /// [Some] values should be used, as it represents data that should replace the current one.
     pub fn update(&mut self, new: Self) {
         if let Some(input_port) = new.input_port {
             self.input_port = Some(input_port);
@@ -151,6 +194,7 @@ impl LinkData {
     }
 }
 
+/// Enum of all [PWObject] data variants. Used by polymorphic functions over only the object data.
 pub enum PWObjectData {
     Node(NodeData),
     Port(PortData),
@@ -158,6 +202,9 @@ pub enum PWObjectData {
 }
 
 impl PWObjectData {
+    /// Checks if any of the fields is [Some]
+    ///
+    /// Returns true if any field is [Some], false otherwise.
     pub fn is_empty(&self) -> bool {
         match self {
             PWObjectData::Node(data) => data.is_empty(),
@@ -167,6 +214,9 @@ impl PWObjectData {
     }
 }
 
+/// Enum of all tracked types of [pipewire] graph elements.
+///
+/// The variants are structs of the object data and its [Proxy].
 pub enum PWObject {
     Node {
         data: NodeData,
