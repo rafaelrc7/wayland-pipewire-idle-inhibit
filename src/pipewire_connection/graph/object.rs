@@ -62,19 +62,6 @@ impl NodeData {
             .or(self.name.as_deref())
     }
 
-    /// Checks if any of the fields is [Some]
-    ///
-    /// Returns true if any field is [Some], false otherwise.
-    pub fn is_empty(&self) -> bool {
-        self.name.is_none()
-            && self.app_name.is_none()
-            && self.description.is_none()
-            && self.nick.is_none()
-            && self.media_class.is_none()
-            && self.media_role.is_none()
-            && self.media_software.is_none()
-    }
-
     /// Updates fields if new data is give.
     ///
     /// Returns true if any field was updated, false otherwise.
@@ -136,16 +123,6 @@ pub struct PortData {
 }
 
 impl PortData {
-    /// Checks if any of the fields is [Some]
-    ///
-    /// Returns true if any field is [Some], false otherwise.
-    pub fn is_empty(&self) -> bool {
-        self.name.is_none()
-            && self.node_id.is_none()
-            && self.direction.is_none()
-            && self.is_terminal.is_none()
-    }
-
     /// Updates fields if new data is give.
     ///
     /// Returns true if any field was updated, false otherwise.
@@ -191,13 +168,6 @@ pub struct LinkData {
 }
 
 impl LinkData {
-    /// Checks if any of the fields is [Some]
-    ///
-    /// Returns true if any field is [Some], false otherwise.
-    pub fn is_empty(&self) -> bool {
-        self.input_port.is_none() && self.output_port.is_none() && self.active.is_none()
-    }
-
     /// Updates fields if new data is give.
     ///
     /// Returns true if any field was updated, false otherwise.
@@ -231,19 +201,6 @@ pub enum PWObjectData {
     Node(NodeData),
     Port(PortData),
     Link(LinkData),
-}
-
-impl PWObjectData {
-    /// Checks if any of the fields is [Some]
-    ///
-    /// Returns true if any field is [Some], false otherwise.
-    pub fn is_empty(&self) -> bool {
-        match self {
-            PWObjectData::Node(data) => data.is_empty(),
-            PWObjectData::Port(data) => data.is_empty(),
-            PWObjectData::Link(data) => data.is_empty(),
-        }
-    }
 }
 
 /// Enum of all tracked types of [pipewire] graph elements.
