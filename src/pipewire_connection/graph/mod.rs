@@ -28,6 +28,11 @@ use filter::{Filter, NodeFilter, SinkFilter};
 pub mod object;
 use object::{Id, LinkData, NodeData, PWObject, PWObjectData, PortData};
 
+/// Struct that represents the [pipewire] graph.
+///
+/// Tracked objects are store in a [HashMap] with its id used as key
+///
+/// Fast access to links attached to ports and the port's nodes are also kept in maps.
 pub struct PWGraph {
     objects: HashMap<Id, PWObject>,
     sinks: HashSet<Id>,
@@ -40,6 +45,10 @@ pub struct PWGraph {
 }
 
 impl PWGraph {
+    /// Builds a new [PWGraph]
+    ///
+    /// The vectors of [SinkFilter]s and [NodeFilter]s are defined by the user and, thus, are
+    /// passed as arguments.
     pub fn new(sink_whitelist: Vec<SinkFilter>, node_blacklist: Vec<NodeFilter>) -> Self {
         Self {
             objects: HashMap::default(),
@@ -53,6 +62,9 @@ impl PWGraph {
         }
     }
 
+    /// Inserts a new object into the Graph.
+    ///
+    /// Currently ID conflicts are not treated.
     pub fn insert(&mut self, id: Id, obj: PWObject) {
         match obj {
             PWObject::Node { ref data, .. } => {
@@ -112,6 +124,7 @@ impl PWGraph {
         self.objects.insert(id, obj);
     }
 
+    /// Updates an object data
     pub fn update(&mut self, id: Id, new_data: PWObjectData) -> bool {
         trace!(target: "PWGraph::update", "Called for object with ID {id}");
         let Some(obj) = self.objects.get_mut(&id) else {
@@ -286,6 +299,7 @@ impl PWGraph {
         }
     }
 
+    /// Remove an object from the graph and cleans up references to it.
     pub fn remove(&mut self, id: Id) -> Option<PWObject> {
         trace!(target: "PWGraph::remove", "Called for object with ID {id}");
         let removed = self.objects.remove(&id);
@@ -364,6 +378,9 @@ impl PWGraph {
         &self.sinks
     }
 
+    /// Looks for sinks with active links to tracked nodes.
+    ///
+    /// If a sink_whitelist is passed to the graph, only sinks that match it will be treated.
     pub fn get_active_sinks(&self) -> HashSet<&Id> {
         let mut active_sinks: HashSet<&Id> = HashSet::new();
 
@@ -381,6 +398,10 @@ impl PWGraph {
         active_sinks
     }
 
+    /// Transverses the Graphs in a manner similar to a DFS algorithm, looking for active
+    /// connections from sinks to nodes.
+    ///
+    /// If a node_blacklist was passed, nodes that match it will be ignored.
     fn check_node_active(&self, id: &Id, visited: &mut HashSet<Id>) -> bool {
         visited.insert(*id);
 
