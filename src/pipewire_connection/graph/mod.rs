@@ -114,33 +114,17 @@ impl PWGraph {
 
     pub fn update(&mut self, id: Id, new_data: PWObjectData) -> bool {
         trace!(target: "PWGraph::update", "Called for object with ID {id}");
-        let obj = match self.objects.remove(&id) {
-            Some(o) => o,
-            None => {
-                warn!(target: "PWGraph::update", "Tried to update inexistent object with ID {id}");
-                return false;
-            }
-        };
-
-        if new_data.is_empty() {
-            trace!(target: "PWGraph::update", "Tried to update object with ID {id} but new_data is empty");
-            self.objects.insert(id, obj);
+        let Some(obj) = self.objects.get_mut(&id) else {
+            warn!(target: "PWGraph::update", "Tried to update inexistent object with ID {id}");
             return false;
-        }
+        };
 
         match new_data {
             PWObjectData::Node(new_data) => {
-                let PWObject::Node { mut data, proxy } = obj else {
+                let PWObject::Node { ref mut data, .. } = obj else {
                     warn!(target: "PWGraph::update", "Tried to update Node, but object of ID {id} is not a Node");
-                    self.objects.insert(id, obj);
                     return false;
                 };
-
-                if data == new_data {
-                    trace!(target: "PWGraph::update", "Tried to update Node ({id}), but it is unmodified");
-                    self.objects.insert(id, PWObject::Node { data, proxy });
-                    return false;
-                }
 
                 let NodeData {
                     media_class: ref new_media_class,
@@ -168,51 +152,66 @@ impl PWGraph {
                 }
 
                 debug!(target: "PWGraph::update", "Updated Node ({id}) from {:?}", data);
-                data.update(new_data);
+                let was_updated = data.update(new_data);
                 debug!(target: "PWGraph::update", "Updated Node ({id}) to {:?}", data);
-                self.objects.insert(id, PWObject::Node { data, proxy });
+                was_updated
             }
             PWObjectData::Port(new_data) => {
-                let PWObject::Port { mut data, proxy } = obj else {
+                let PWObject::Port { ref mut data, .. } = obj else {
                     warn!(target: "PWGraph::update", "Tried to update Port, but object of ID {id} is not a Port");
-                    self.objects.insert(id, obj);
                     return false;
                 };
 
-                if data == new_data {
-                    trace!(target: "PWGraph::update", "Tried to update Port ({id}), but it is unmodified");
-                    self.objects.insert(id, PWObject::Port { data, proxy });
-                    return false;
-                }
-
                 let PortData {
-                    node_id: new_node_id,
-                    direction: new_direction,
+                    node_id: ref new_node_id,
+                    direction: ref new_direction,
                     ..
                 } = new_data;
                 let PortData {
-                    node_id, direction, ..
+                    ref node_id,
+                    ref direction,
+                    ..
                 } = data;
 
                 if node_id != new_node_id || direction != new_direction {
                     if let (Some(new_node_id), Some(new_direction)) = (new_node_id, new_direction) {
                         if let (Some(node_id), Some(direction)) = (node_id, direction) {
-                            match direction {
+                            match *direction {
                                 Direction::Input => {
-                                    self.get_node_input_ports(&node_id).remove(&id);
+                                    // TODO: Helper method Self::get_node_input_ports can't be used
+                                    // because of borrow checker
+                                    self.node_input_ports
+                                        .entry(*node_id)
+                                        .or_default()
+                                        .remove(&id);
                                 }
                                 Direction::Output => {
-                                    self.get_node_output_ports(&node_id).remove(&id);
+                                    // TODO: Helper method Self::get_node_output_ports can't be
+                                    // used because of borrow checker
+                                    self.node_output_ports
+                                        .entry(*node_id)
+                                        .or_default()
+                                        .remove(&id);
                                 }
                                 _ => {}
                             }
                         }
-                        match new_direction {
+                        match *new_direction {
                             Direction::Input => {
-                                self.get_node_input_ports(&new_node_id).insert(id);
+                                // TODO: Helper method Self::get_node_input_ports can't be used
+                                // because of borrow checker
+                                self.node_input_ports
+                                    .entry(*new_node_id)
+                                    .or_default()
+                                    .insert(id);
                             }
                             Direction::Output => {
-                                self.get_node_output_ports(&new_node_id).insert(id);
+                                // TODO: Helper method Self::get_node_output_ports can't be used
+                                // because of borrow checker
+                                self.node_output_ports
+                                    .entry(*new_node_id)
+                                    .or_default()
+                                    .insert(id);
                             }
                             _ => {}
                         }
@@ -220,60 +219,71 @@ impl PWGraph {
                 }
 
                 debug!(target: "PWGraph::update", "Updated Port ({id}) from {:?}", data);
-                data.update(new_data);
+                let was_updated = data.update(new_data);
                 debug!(target: "PWGraph::update", "Updated Port ({id}) to {:?}", data);
-                self.objects.insert(id, PWObject::Port { data, proxy });
+                was_updated
             }
             PWObjectData::Link(new_data) => {
-                let PWObject::Link { mut data, proxy } = obj else {
+                let PWObject::Link { ref mut data, .. } = obj else {
                     warn!(target: "PWGraph::update", "Tried to update Link, but object of ID {id} is not a Link");
-                    self.objects.insert(id, obj);
                     return false;
                 };
 
-                if data == new_data {
-                    trace!(target: "PWGraph::update", "Tried to update Link ({id}), but it is unmodified");
-                    self.objects.insert(id, PWObject::Link { data, proxy });
-                    return false;
-                }
-
                 let LinkData {
-                    input_port: new_input_port,
-                    output_port: new_output_port,
+                    input_port: ref new_input_port,
+                    output_port: ref new_output_port,
                     ..
                 } = new_data;
                 let LinkData {
-                    input_port,
-                    output_port,
+                    ref input_port,
+                    ref output_port,
                     ..
                 } = data;
 
                 if output_port != new_output_port {
                     if let Some(new_output_port) = new_output_port {
                         if let Some(output_port) = output_port {
-                            self.get_links_from_port(&output_port).remove(&id);
+                            // TODO: Helper method Self::get_links_from_port can't be used because
+                            // of borrow checker
+                            self.links_from_port
+                                .entry(*output_port)
+                                .or_default()
+                                .remove(&id);
                         }
-                        self.get_links_from_port(&new_output_port).insert(id);
+                        // TODO: Helper method Self::get_links_from_port can't be used because of
+                        // borrow checker
+                        self.links_from_port
+                            .entry(*new_output_port)
+                            .or_default()
+                            .insert(id);
                     }
                 }
 
                 if input_port != new_input_port {
                     if let Some(new_input_port) = new_input_port {
                         if let Some(input_port) = input_port {
-                            self.get_links_to_port(&input_port).remove(&id);
+                            // TODO: Helper method Self::get_links_to_port can't be used because of
+                            // borrow checker
+                            self.links_to_port
+                                .entry(*input_port)
+                                .or_default()
+                                .remove(&id);
                         }
-                        self.get_links_to_port(&new_input_port).insert(id);
+                        // TODO: Helper method Self::get_links_to_port can't be used because of
+                        // borrow checker
+                        self.links_to_port
+                            .entry(*new_input_port)
+                            .or_default()
+                            .insert(id);
                     }
                 }
 
                 debug!(target: "PWGraph::update", "Updated Link ({id}) from {:?}", data);
-                data.update(new_data);
+                let was_updated = data.update(new_data);
                 debug!(target: "PWGraph::update", "Updated Link ({id}) to {:?}", data);
-                self.objects.insert(id, PWObject::Link { data, proxy });
+                was_updated
             }
-        };
-
-        true
+        }
     }
 
     pub fn remove(&mut self, id: Id) -> Option<PWObject> {

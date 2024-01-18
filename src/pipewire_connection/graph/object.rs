@@ -77,36 +77,49 @@ impl NodeData {
 
     /// Updates fields if new data is give.
     ///
+    /// Returns true if any field was updated, false otherwise.
+    ///
     /// [pipewire] update events don't provide already existing data, only new one. Thus, only
     /// [Some] values should be used, as it represents data that should replace the current one.
-    pub fn update(&mut self, new: Self) {
-        if let Some(name) = new.name {
-            self.name = Some(name);
+    pub fn update(&mut self, new: Self) -> bool {
+        let mut was_updated = false;
+
+        if new.name.is_some() && self.name != new.name {
+            self.name = new.name;
+            was_updated = true;
         }
 
-        if let Some(app_name) = new.app_name {
-            self.app_name = Some(app_name);
+        if new.app_name.is_some() && self.app_name != new.app_name {
+            self.app_name = new.app_name;
+            was_updated = true;
         }
 
-        if let Some(description) = new.description {
-            self.description = Some(description);
+        if new.description.is_some() && self.description != new.description {
+            self.description = new.description;
+            was_updated = true;
         }
 
-        if let Some(nick) = new.nick {
-            self.nick = Some(nick);
+        if new.nick.is_some() && self.nick != new.nick {
+            self.nick = new.nick;
+            was_updated = true;
         }
 
-        if let Some(media_class) = new.media_class {
-            self.media_class = Some(media_class);
+        if new.media_class.is_some() && self.media_class != new.media_class {
+            self.media_class = new.media_class;
+            was_updated = true;
         }
 
-        if let Some(media_role) = new.media_role {
-            self.media_role = Some(media_role);
+        if new.media_role.is_some() && self.media_role != new.media_role {
+            self.media_role = new.media_role;
+            was_updated = true;
         }
 
-        if let Some(media_software) = new.media_software {
-            self.media_software = Some(media_software);
+        if new.media_software.is_some() && self.media_software != new.media_software {
+            self.media_software = new.media_software;
+            was_updated = true;
         }
+
+        was_updated
     }
 }
 
@@ -135,24 +148,34 @@ impl PortData {
 
     /// Updates fields if new data is give.
     ///
+    /// Returns true if any field was updated, false otherwise.
+    ///
     /// [pipewire] update events don't provide already existing data, only new one. Thus, only
     /// [Some] values should be used, as it represents data that should replace the current one.
-    pub fn update(&mut self, new: Self) {
-        if let Some(name) = new.name {
-            self.name = Some(name);
+    pub fn update(&mut self, new: Self) -> bool {
+        let mut was_updated = false;
+
+        if new.name.is_some() && self.name != new.name {
+            self.name = new.name;
+            was_updated = true;
         }
 
-        if let Some(node_id) = new.node_id {
-            self.node_id = Some(node_id);
+        if new.node_id.is_some() && self.node_id != new.node_id {
+            self.node_id = new.node_id;
+            was_updated = true;
         }
 
-        if let Some(direction) = new.direction {
-            self.direction = Some(direction);
+        if new.direction.is_some() && self.direction != new.direction {
+            self.direction = new.direction;
+            was_updated = true;
         }
 
-        if let Some(is_terminal) = new.is_terminal {
-            self.is_terminal = Some(is_terminal);
+        if new.is_terminal.is_some() && self.is_terminal != new.is_terminal {
+            self.is_terminal = new.is_terminal;
+            was_updated = true;
         }
+
+        was_updated
     }
 }
 
@@ -177,20 +200,29 @@ impl LinkData {
 
     /// Updates fields if new data is give.
     ///
+    /// Returns true if any field was updated, false otherwise.
+    ///
     /// [pipewire] update events don't provide already existing data, only new one. Thus, only
     /// [Some] values should be used, as it represents data that should replace the current one.
-    pub fn update(&mut self, new: Self) {
-        if let Some(input_port) = new.input_port {
-            self.input_port = Some(input_port);
+    pub fn update(&mut self, new: Self) -> bool {
+        let mut was_updated = false;
+
+        if new.input_port.is_some() && self.input_port != new.input_port {
+            self.input_port = new.input_port;
+            was_updated = true;
         }
 
-        if let Some(output_port) = new.output_port {
-            self.output_port = Some(output_port);
+        if new.output_port.is_some() && self.output_port != new.output_port {
+            self.output_port = new.output_port;
+            was_updated = true;
         }
 
-        if let Some(active) = new.active {
-            self.active = Some(active);
+        if new.active.is_some() && self.active != new.active {
+            self.active = new.active;
+            was_updated = true;
         }
+
+        was_updated
     }
 }
 
