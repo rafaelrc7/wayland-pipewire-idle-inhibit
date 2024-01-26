@@ -19,10 +19,7 @@
 
 use std::{sync::mpsc, thread};
 
-use signal_hook::{
-    consts::{SIGINT, SIGQUIT, SIGTERM},
-    iterator::Signals,
-};
+use signal_hook::{consts::TERM_SIGNALS, iterator::Signals};
 
 mod inhibit_idle_state;
 use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
@@ -67,8 +64,7 @@ fn main() {
 
     let (event_queue_sender, event_queue) = mpsc::channel::<Msg>();
 
-    let mut signals =
-        Signals::new([SIGINT, SIGQUIT, SIGTERM]).expect("Failed to create signal listener");
+    let mut signals = Signals::new(TERM_SIGNALS).expect("Failed to create signal listener");
     let signal_thread = thread::spawn({
         let event_queue_sender = event_queue_sender.clone();
         move || {
