@@ -90,11 +90,17 @@ impl PWGraph {
                     match *direction {
                         Direction::Input => {
                             debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input; {:?}", data);
-                            self.get_node_input_ports(node_id).insert(id);
+                            self.node_input_ports
+                                .entry(*node_id)
+                                .or_default()
+                                .insert(id);
                         }
                         Direction::Output => {
                             debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output; {:?}", data);
-                            self.get_node_output_ports(node_id).insert(id);
+                            self.node_output_ports
+                                .entry(*node_id)
+                                .or_default()
+                                .insert(id);
                         }
                         _ => {}
                     };
@@ -111,12 +117,18 @@ impl PWGraph {
 
                 if let Some(output_port) = output_port {
                     debug!(target: "PWGraph::insert", "Link ({id}) with output_port {output_port}");
-                    self.get_links_from_port(output_port).insert(id);
+                    self.links_from_port
+                        .entry(*output_port)
+                        .or_default()
+                        .insert(id);
                 };
 
                 if let Some(input_port) = input_port {
                     debug!(target: "PWGraph::insert", "Link ({id}) with input_port {input_port}");
-                    self.get_links_to_port(input_port).insert(id);
+                    self.links_to_port
+                        .entry(*input_port)
+                        .or_default()
+                        .insert(id);
                 };
             }
         }
@@ -191,16 +203,12 @@ impl PWGraph {
                         if let (Some(node_id), Some(direction)) = (node_id, direction) {
                             match *direction {
                                 Direction::Input => {
-                                    // TODO: Helper method Self::get_node_input_ports can't be used
-                                    // because of borrow checker
                                     self.node_input_ports
                                         .entry(*node_id)
                                         .or_default()
                                         .remove(&id);
                                 }
                                 Direction::Output => {
-                                    // TODO: Helper method Self::get_node_output_ports can't be
-                                    // used because of borrow checker
                                     self.node_output_ports
                                         .entry(*node_id)
                                         .or_default()
@@ -211,16 +219,12 @@ impl PWGraph {
                         }
                         match *new_direction {
                             Direction::Input => {
-                                // TODO: Helper method Self::get_node_input_ports can't be used
-                                // because of borrow checker
                                 self.node_input_ports
                                     .entry(*new_node_id)
                                     .or_default()
                                     .insert(id);
                             }
                             Direction::Output => {
-                                // TODO: Helper method Self::get_node_output_ports can't be used
-                                // because of borrow checker
                                 self.node_output_ports
                                     .entry(*new_node_id)
                                     .or_default()
@@ -256,15 +260,11 @@ impl PWGraph {
                 if output_port != new_output_port {
                     if let Some(new_output_port) = new_output_port {
                         if let Some(output_port) = output_port {
-                            // TODO: Helper method Self::get_links_from_port can't be used because
-                            // of borrow checker
                             self.links_from_port
                                 .entry(*output_port)
                                 .or_default()
                                 .remove(&id);
                         }
-                        // TODO: Helper method Self::get_links_from_port can't be used because of
-                        // borrow checker
                         self.links_from_port
                             .entry(*new_output_port)
                             .or_default()
@@ -275,15 +275,11 @@ impl PWGraph {
                 if input_port != new_input_port {
                     if let Some(new_input_port) = new_input_port {
                         if let Some(input_port) = input_port {
-                            // TODO: Helper method Self::get_links_to_port can't be used because of
-                            // borrow checker
                             self.links_to_port
                                 .entry(*input_port)
                                 .or_default()
                                 .remove(&id);
                         }
-                        // TODO: Helper method Self::get_links_to_port can't be used because of
-                        // borrow checker
                         self.links_to_port
                             .entry(*new_input_port)
                             .or_default()
@@ -321,10 +317,16 @@ impl PWGraph {
                 if let (Some(node_id), Some(direction)) = (node_id, direction) {
                     match *direction {
                         Direction::Input => {
-                            self.get_node_input_ports(node_id).remove(&id);
+                            self.node_input_ports
+                                .entry(*node_id)
+                                .or_default()
+                                .remove(&id);
                         }
                         Direction::Output => {
-                            self.get_node_output_ports(node_id).remove(&id);
+                            self.node_output_ports
+                                .entry(*node_id)
+                                .or_default()
+                                .remove(&id);
                         }
                         _ => {}
                     };
@@ -338,11 +340,17 @@ impl PWGraph {
                     ..
                 } = data;
                 if let Some(output_port) = output_port {
-                    self.get_links_from_port(output_port).remove(&id);
+                    self.links_from_port
+                        .entry(*output_port)
+                        .or_default()
+                        .remove(&id);
                 };
 
                 if let Some(input_port) = input_port {
-                    self.get_links_to_port(input_port).remove(&id);
+                    self.links_to_port
+                        .entry(*input_port)
+                        .or_default()
+                        .remove(&id);
                 };
                 debug!(target: "PWGraph::remove", "Removed Link ({id})");
             }
@@ -358,37 +366,17 @@ impl PWGraph {
         self.objects.get(id)
     }
 
-    pub fn get_links_to_port(&mut self, port: &Id) -> &mut HashSet<Id> {
-        self.links_to_port.entry(*port).or_default()
-    }
-
-    pub fn get_links_from_port(&mut self, port: &Id) -> &mut HashSet<Id> {
-        self.links_from_port.entry(*port).or_default()
-    }
-
-    pub fn get_node_input_ports(&mut self, node_id: &Id) -> &mut HashSet<Id> {
-        self.node_input_ports.entry(*node_id).or_default()
-    }
-
-    pub fn get_node_output_ports(&mut self, node_id: &Id) -> &mut HashSet<Id> {
-        self.node_output_ports.entry(*node_id).or_default()
-    }
-
-    pub fn get_sinks(&self) -> &HashSet<Id> {
-        &self.sinks
-    }
-
     /// Looks for sinks with active links to tracked nodes.
     ///
     /// If a sink_whitelist is passed to the graph, only sinks that match it will be treated.
     pub fn get_active_sinks(&self) -> HashSet<&Id> {
         let mut active_sinks: HashSet<&Id> = HashSet::new();
 
-        if self.get_sinks().is_empty() {
+        if self.sinks.is_empty() {
             warn!(target: "PWGraph::get_active_sinks", "List of sinks is empty");
         }
 
-        for sink in self.get_sinks() {
+        for sink in &self.sinks {
             trace!(target: "PWgraph::get_active_sinks", "Starting transversal from Sink {sink}");
             if self.check_node_active(sink, &mut HashSet::new()) {
                 active_sinks.insert(sink);
