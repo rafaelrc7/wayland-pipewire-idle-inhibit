@@ -56,10 +56,10 @@ nix build github:rafaelrc7/wayland-pipewire-idle-inhibit
 ### Cargo
 
 ```sh
-git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
-cd wayland-pipewire-idle-inhibit
-cargo install
+cargo install wayland-pipewire-idle-inhibit
 ```
+
+See [Running](#running) for instructions on how to run the program
 
 ### Nix Flake (recommended)
 
@@ -113,6 +113,26 @@ inputs.wayland-pipewire-idle-inhibit.overlays.default
 ```nix
 inputs.wayland-pipewire-idle-inhibit.packages.default
 ```
+
+## Running
+
+### Compositor
+
+Then you may run it in your Sway config, or equivalent for your Wayland compositor:
+
+```
+exec wayland-pipewire-idle-inhibit
+```
+
+### systemd
+
+Another option is to setup a systemd user service. See
+[wayland-pipewire-idle-inhibit.service](wayland-pipewire-idle-inhibit.service)
+for an example.
+
+- Copy the example service file to `~/.config/systemd/user/` and edit it to your liking
+- Run `systemctl --user daemon-reload`
+- Run `systemctl --user enable wayland-pipewire-idle-inhibit.service --now`
 
 ## Config
 

@@ -1,0 +1,12 @@
+[Install]
+WantedBy=graphical-session.target # or, for example, "sway-session.target"
+
+[Service]
+ExecStart=wayland-pipewire-idle-inhibit # Extra CLI options can be added here
+Restart=always
+RestartSec=10
+
+[Unit]
+Description=Inhibit Wayland idling when media is played through pipewire
+Documentation=https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
+
