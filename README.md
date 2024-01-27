@@ -1,5 +1,7 @@
 # Wayland PipeWire Idle Inhibit
 
+## Description
+
 Suspends automatic idling of Wayland compositors when media is being played
 through Pipewire.
 
@@ -7,7 +9,35 @@ Depends on the Wayland experimental protocol
 [idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1)
 and [PipeWire](https://www.pipewire.org/).
 
+## Usage
+
+```
+Usage: wayland-pipewire-idle-inhibit [OPTIONS]
+
+Options:
+  -d, --media-minimum-duration <SECONDS>
+          Minimum media duration to inhibit idle
+  -v, --verbosity <VERBOSITY>
+          Log verbosity [possible values: OFF, ERROR, WARN, INFO, DEBUG, TRACE]
+  -q, --quiet
+          Disables logging completely
+  -c, --config <PATH>
+          Path to config file
+  -h, --help
+          Print help
+  -V, --version
+          Print version
+```
+
 ## Building
+
+### Cargo
+
+```sh
+git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
+cd wayland-pipewire-idle-inhibit
+cargo build
+```
 
 ### Nix
 
@@ -21,15 +51,15 @@ nix build
 nix build github:rafaelrc7/wayland-pipewire-idle-inhibit
 ```
 
+## Installing
+
 ### Cargo
 
 ```sh
 git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
 cd wayland-pipewire-idle-inhibit
-cargo build
+cargo install
 ```
-
-## Installing
 
 ### Nix Flake (recommended)
 
@@ -82,34 +112,6 @@ inputs.wayland-pipewire-idle-inhibit.overlays.default
 
 ```nix
 inputs.wayland-pipewire-idle-inhibit.packages.default
-```
-
-### Cargo
-
-```sh
-git clone https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit
-cd wayland-pipewire-idle-inhibit
-cargo install
-```
-
-## Usage
-
-```
-Usage: wayland-pipewire-idle-inhibit [OPTIONS]
-
-Options:
-  -d, --media-minimum-duration <SECONDS>
-          Minimum media duration to inhibit idle
-  -v, --verbosity <VERBOSITY>
-          Log verbosity [possible values: OFF, ERROR, WARN, INFO, DEBUG, TRACE]
-  -q, --quiet
-          Disables logging completely
-  -c, --config <PATH>
-          Path to config file
-  -h, --help
-          Print help
-  -V, --version
-          Print version
 ```
 
 ## Config
