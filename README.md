@@ -9,6 +9,13 @@ Depends on the Wayland experimental protocol
 [idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1)
 and [PipeWire](https://www.pipewire.org/).
 
+Main features:
+- Inhibit idle when any app plays audio through PipeWire
+- Customisable minimum media duration to inhibit idle (Useful for keeping notifications from inhibiting idle)
+- Customisable list of client filters (Useful for ignoring certain programs, such as background music)
+
+Feedback and contributions are welcome!
+
 ## Usage
 
 ```
