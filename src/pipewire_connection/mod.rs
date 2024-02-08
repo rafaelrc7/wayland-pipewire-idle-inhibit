@@ -174,7 +174,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
         move |signal: PWMsg| match signal {
             PWMsg::Terminate => mainloop.quit(),
             PWMsg::GraphUpdated => {
-                let should_inhibit_idle = !graph.borrow_mut().get_active_sinks().is_empty();
+                let should_inhibit_idle = graph.borrow().is_any_sink_active();
                 pw_event_listener
                     .send(Msg::from(PWEvent::InhibitIdleState(should_inhibit_idle)))
                     .unwrap();

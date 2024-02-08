@@ -369,31 +369,29 @@ impl PWGraph {
     /// Looks for sinks with active links to tracked nodes.
     ///
     /// If a sink_whitelist is passed to the graph, only sinks that match it will be treated.
-    pub fn get_active_sinks(&self) -> HashSet<&Id> {
-        let mut active_sinks: HashSet<&Id> = HashSet::new();
-
+    pub fn is_any_sink_active(&self) -> bool {
         if self.sinks.is_empty() {
-            warn!(target: "PWGraph::get_active_sinks", "List of sinks is empty");
+            warn!(target: "PWGraph::is_any_sink_active", "List of sinks is empty");
         }
 
         for sink in &self.sinks {
-            trace!(target: "PWgraph::get_active_sinks", "Starting transversal from Sink {sink}");
-            if self.check_node_active(sink, &mut HashSet::new()) {
-                active_sinks.insert(sink);
+            trace!(target: "PWgraph::is_any_sink_active", "Starting transversal from Sink {sink}");
+            if self.does_sink_has_active_nodes(sink, &mut HashSet::new()) {
+                return true;
             }
         }
 
-        active_sinks
+        false
     }
 
     /// Transverses the Graphs in a manner similar to a DFS algorithm, looking for active
     /// connections from sinks to nodes.
     ///
     /// If a node_blacklist was passed, nodes that match it will be ignored.
-    fn check_node_active(&self, id: &Id, visited: &mut HashSet<Id>) -> bool {
+    fn does_sink_has_active_nodes(&self, id: &Id, visited: &mut HashSet<Id>) -> bool {
         visited.insert(*id);
 
-        trace!(target: "PWGraph::check_node_active", "Node {id}");
+        trace!(target: "PWGraph::does_sink_has_active_nodes", "Node {id}");
         match self.get(id) {
             Some(PWObject::Node { data, .. }) => {
                 if NodeFilter::matches_any(&self.node_blacklist, data) {
@@ -401,27 +399,27 @@ impl PWGraph {
                 }
             }
             None => {
-                warn!(target: "PWGraph::check_node_active", "While transversing graph, got invalid id {id}");
+                warn!(target: "PWGraph::does_sink_has_active_nodes", "While transversing graph, got invalid id {id}");
                 return false;
             }
             _ => {
-                warn!(target: "PWGraph::check_node_active", "While transversing graph expected Node, but got something else with id {id}");
+                warn!(target: "PWGraph::does_sink_has_active_nodes", "While transversing graph expected Node, but got something else with id {id}");
                 return false;
             }
         };
 
         let Some(node_input_ports) = self.node_input_ports.get(id) else {
-            trace!(target: "PWGraph::check_node_active", "Node ({id}) has no input ports, assuming it is a client");
+            trace!(target: "PWGraph::does_sink_has_active_nodes", "Node ({id}) has no input ports, assuming it is a client");
             return true;
         };
 
         if node_input_ports.is_empty() {
-            trace!(target: "PWGraph::check_node_active", "Node ({id}) has no input ports, assuming it is a client");
+            trace!(target: "PWGraph::does_sink_has_active_nodes", "Node ({id}) has no input ports, assuming it is a client");
             return true;
         };
 
         trace!(
-            target: "PWGraph::check_node_active",
+            target: "PWGraph::does_sink_has_active_nodes",
             "Transversing Graph: Node {id}: Node Input Ports: {}",
             node_input_ports.len()
         );
@@ -429,26 +427,26 @@ impl PWGraph {
         let mut links_to_node: HashSet<(&Id, &Id)> = HashSet::new();
         for port in node_input_ports {
             let Some(PWObject::Port { .. }) = self.get(port) else {
-                warn!(target: "PWGraph::check_node_active", "While transversing graph, expected Port, got something else with id {port}");
+                warn!(target: "PWGraph::does_sink_has_active_nodes", "While transversing graph, expected Port, got something else with id {port}");
                 continue;
             };
             trace!("Transversing Graph: Node {id}: Input Port {port}");
             let Some(links) = self.links_to_port.get(port) else {
-                trace!(target: "PWGraph::check_node_active", "Transversing Graph: Node {id}: No links to Input Port {port}");
+                trace!(target: "PWGraph::does_sink_has_active_nodes", "Transversing Graph: Node {id}: No links to Input Port {port}");
                 continue;
             };
             if links.is_empty() {
-                trace!(target: "PWGraph::check_node_active", "Transversing Graph: Node {id}: No links to Input Port {port}");
+                trace!(target: "PWGraph::does_sink_has_active_nodes", "Transversing Graph: Node {id}: No links to Input Port {port}");
                 continue;
             };
             trace!(
-                target: "PWGraph::check_node_active",
+                target: "PWGraph::does_sink_has_active_nodes",
                 "Transversing Graph: Node {id}: links to Input Port {port}: {}",
                 links.len()
             );
             for link in links {
                 let Some(PWObject::Link { data, .. }) = self.get(link) else {
-                    warn!(target: "PWGraph::check_node_active", "While transversing graph, expected Link, got something else with id {link}");
+                    warn!(target: "PWGraph::does_sink_has_active_nodes", "While transversing graph, expected Link, got something else with id {link}");
                     continue;
                 };
                 let LinkData {
@@ -466,7 +464,7 @@ impl PWGraph {
                 }
 
                 let Some(output_port) = output_port else {
-                    warn!(target: "PWGraph::check_node_active", "Link ({link}) is missing output_port");
+                    warn!(target: "PWGraph::does_sink_has_active_nodes", "Link ({link}) is missing output_port");
                     continue;
                 };
 
@@ -475,24 +473,24 @@ impl PWGraph {
         }
 
         if links_to_node.is_empty() {
-            trace!(target: "PWGraph::check_node_active", "Transversing Graph: Node {id}: No Active Links to node");
+            trace!(target: "PWGraph::does_sink_has_active_nodes", "Transversing Graph: Node {id}: No Active Links to node");
             return false;
         };
-        trace!(target: "PWGraph::check_node_active", "Transversing Graph: Node {id}: Active Links to node: {}", links_to_node.len());
+        trace!(target: "PWGraph::does_sink_has_active_nodes", "Transversing Graph: Node {id}: Active Links to node: {}", links_to_node.len());
 
         for (_, input_port) in links_to_node {
             let Some(PWObject::Port { data, .. }) = self.get(input_port) else {
-                warn!(target: "PWGraph::check_node_active", "While transversing graph, expected Port, got something else with id {input_port}");
+                warn!(target: "PWGraph::does_sink_has_active_nodes", "While transversing graph, expected Port, got something else with id {input_port}");
                 continue;
             };
             let PortData { node_id, .. } = data;
 
             let Some(node_id) = node_id else {
-                warn!(target: "PWGraph::check_node_active", "Port ({input_port}) is missing node_id");
+                warn!(target: "PWGraph::does_sink_has_active_nodes", "Port ({input_port}) is missing node_id");
                 continue;
             };
 
-            if !visited.contains(node_id) && self.check_node_active(node_id, visited) {
+            if !visited.contains(node_id) && self.does_sink_has_active_nodes(node_id, visited) {
                 return true;
             }
         }
