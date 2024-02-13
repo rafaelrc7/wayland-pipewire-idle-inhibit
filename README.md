@@ -12,10 +12,18 @@ and [PipeWire](https://www.pipewire.org/).
 Main features:
 
 - Inhibit idle when any app plays audio through PipeWire
-- Customisable minimum media duration to inhibit idle (Useful for keeping notifications from inhibiting idle)
-- Customisable list of client filters (Useful for ignoring certain programs, such as background music)
+- Customisable minimum media duration to inhibit idle (Useful for keeping
+  notifications from inhibiting idle)
+- Customisable list of client filters (Useful for ignoring certain programs,
+  such as background music)
 
 Feedback and contributions are welcome!
+
+## Availability
+
+- [AUR](#aur)
+- [Cargo](#cargo-1)
+- [Nix Flake](#nix-flake-recommended)
 
 ## Usage
 
@@ -67,7 +75,23 @@ nix build github:rafaelrc7/wayland-pipewire-idle-inhibit
 cargo install wayland-pipewire-idle-inhibit
 ```
 
-See [Running](#running) for instructions on how to run the program
+See [Running](#running) for instructions on how to run the program.
+
+### AUR
+
+This package is available in the Arch User Repository:
+[wayland-pipewire-idle-inhibit](https://aur.archlinux.org/packages/wayland-pipewire-idle-inhibit)
+
+Install it using your AUR helper of choice.
+
+The package includes the binary and the default systemd service unit file, that
+may be enabled and ran with:
+
+```sh
+systemctl --user enable wayland-pipewire-idle-inhibit.service --now
+```
+
+See [Running](#running) for further instructions on how to run the program.
 
 ### Nix Flake (recommended)
 
@@ -110,11 +134,18 @@ services.wayland-pipewire-idle-inhibit = {
 };
 ```
 
+This method will install the program and setup a user systemd service.
+
 #### Using the overlay
 
 ```nix
 inputs.wayland-pipewire-idle-inhibit.overlays.default
 ```
+
+By adding the overlay, you may then install the `wayland-pipewire-idle-inhibit`
+package.
+
+See [Running](#running) for instructions on how to run the program.
 
 #### Using the package
 
@@ -122,11 +153,14 @@ inputs.wayland-pipewire-idle-inhibit.overlays.default
 inputs.wayland-pipewire-idle-inhibit.packages.default
 ```
 
+See [Running](#running) for instructions on how to run the program.
+
 ## Running
 
 ### Compositor
 
-Then you may run it in your Sway config, or equivalent for your Wayland compositor:
+Then you may run it in your Sway config, or equivalent for your Wayland
+compositor:
 
 ```
 exec wayland-pipewire-idle-inhibit
@@ -136,9 +170,12 @@ exec wayland-pipewire-idle-inhibit
 
 Another option is to setup a systemd user service. See
 [wayland-pipewire-idle-inhibit.service](wayland-pipewire-idle-inhibit.service)
-for an example.
+for a model. You may customise it by, for example, adding CLI args to
+`ExecStart` or changing the `WantedBy` target to, for instance,
+`sway-session.target`.
 
-- Copy the example service file to `~/.config/systemd/user/` and edit it to your liking
+- Copy the example service file to `~/.config/systemd/user/` and edit it to
+  your liking
 - Run `systemctl --user daemon-reload`
 - Run `systemctl --user enable wayland-pipewire-idle-inhibit.service --now`
 
