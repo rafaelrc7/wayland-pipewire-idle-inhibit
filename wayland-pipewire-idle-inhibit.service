@@ -1,8 +1,8 @@
 [Install]
-WantedBy=graphical-session.target # or, for example, "sway-session.target"
+WantedBy=graphical-session.target
 
 [Service]
-ExecStart=wayland-pipewire-idle-inhibit # Extra CLI options can be added here
+ExecStart=wayland-pipewire-idle-inhibit
 Restart=always
 RestartSec=10
 
