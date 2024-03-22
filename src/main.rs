@@ -27,8 +27,8 @@ use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
 mod pipewire_connection;
 use pipewire_connection::{PWEvent, PWMsg, PWThread};
 
-mod wayland_idle_inhibitor;
-use wayland_idle_inhibitor::WaylandIdleInhibitor;
+mod idle_inhibitor;
+use idle_inhibitor::{wayland::WaylandIdleInhibitor, IdleInhibitor};
 
 mod settings;
 use settings::Settings;
@@ -79,8 +79,8 @@ fn main() {
         settings.get_sink_whitelist().to_vec(),
         settings.get_node_blacklist().to_vec(),
     );
-    let mut wayland_idle_inhibitor = match WaylandIdleInhibitor::new() {
-        Ok(wayland_idle_inhibitor) => wayland_idle_inhibitor,
+    let mut wayland_idle_inhibitor: Box<dyn IdleInhibitor> = match WaylandIdleInhibitor::new() {
+        Ok(wayland_idle_inhibitor) => Box::new(wayland_idle_inhibitor),
         Err(error) => panic!("{}", error),
     };
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
@@ -101,9 +101,11 @@ fn main() {
             Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                 match inhibit_idle_state_event {
                     InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                        if let Err(error) =
-                            wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state)
-                        {
+                        if let Err(error) = if inhibit_idle_state {
+                            wayland_idle_inhibitor.inhibit()
+                        } else {
+                            wayland_idle_inhibitor.uninhibit()
+                        } {
                             panic!("{}", error);
                         };
                     }
