@@ -142,19 +142,24 @@ impl FromStr for IdleInhibitor {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "d-bus" => Ok(Self::DBus),
+            "dbus" => Ok(Self::DBus),
             "dry-run" => Ok(Self::DryRun),
             "wayland" => Ok(Self::Wayland),
-            _ => Err(ParseIdleInhibitorError),
+            _ => Err(ParseIdleInhibitorError(s.into())),
         }
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseIdleInhibitorError;
+pub struct ParseIdleInhibitorError(String);
 
 impl Display for ParseIdleInhibitorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Provided value is not a valid IdleInhibitor variant")
+        format!(
+            "Provided value '{}' is not a valid IdleInhibitor variant",
+            self.0
+        )
+        .fmt(f)
     }
 }
 
