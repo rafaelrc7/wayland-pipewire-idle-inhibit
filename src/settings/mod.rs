@@ -46,6 +46,9 @@ pub struct Settings {
 
     #[serde(default)]
     node_blacklist: Vec<NodeFilter>,
+
+    #[serde(default = "default_wayland")]
+    wayland: bool,
 }
 
 impl Settings {
@@ -89,6 +92,10 @@ impl Settings {
     pub fn get_node_blacklist(&self) -> &Vec<NodeFilter> {
         &self.node_blacklist
     }
+
+    pub fn is_wayland_enabled(&self) -> bool {
+        self.wayland
+    }
 }
 
 /// Default media minimum duration, set to 5 seconds
@@ -99,4 +106,8 @@ fn defalt_media_minimum_duration() -> i64 {
 /// Default log verbosity, set to [LevelFilter::Warn]
 fn default_verbosity() -> LevelFilter {
     LevelFilter::Warn
+}
+
+fn default_wayland() -> bool {
+    true
 }

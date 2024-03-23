@@ -81,10 +81,13 @@ fn main() {
     );
 
     let mut idle_inhibitors: Vec<Box<dyn IdleInhibitor>> = Vec::new();
-    match WaylandIdleInhibitor::new() {
-        Ok(wayland_idle_inhibitor) => idle_inhibitors.push(Box::new(wayland_idle_inhibitor)),
-        Err(error) => panic!("{}", error),
-    };
+
+    if settings.is_wayland_enabled() {
+        match WaylandIdleInhibitor::new() {
+            Ok(wayland_idle_inhibitor) => idle_inhibitors.push(Box::new(wayland_idle_inhibitor)),
+            Err(error) => panic!("{}", error),
+        };
+    }
 
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(settings.get_media_minimum_duration(), event_queue_sender);

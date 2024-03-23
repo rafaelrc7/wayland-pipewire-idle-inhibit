@@ -56,6 +56,25 @@ pub struct Args {
     #[serde(default)]
     quiet: bool,
 
+    #[arg(
+        short = 'w',
+        long = "wayland",
+        default_value = true.to_string(),
+        default_value_if("no_wayland", true.to_string(), false.to_string()),
+        help="Enable Wayland idle inhibitor",
+        conflicts_with = "no_wayland")]
+    wayland: bool,
+
+    #[arg(
+        short = 'W',
+        long = "no-wayland",
+        help = "Disables Wayland idle inhibitor",
+        conflicts_with = "wayland"
+    )]
+    #[serde(skip_serializing)]
+    #[serde(default)]
+    no_wayland: bool,
+
     #[arg(short, long, value_name = "PATH", help = "Path to config file")]
     #[serde(skip_serializing)]
     pub config: Option<String>,
