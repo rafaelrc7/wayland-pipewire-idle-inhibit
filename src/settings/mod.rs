@@ -15,7 +15,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! Module responsible with the tool's configuration
-use std::{cmp::Ordering, error::Error, fmt::Display, path::PathBuf};
+use std::{cmp::Ordering, error::Error, fmt::Display, path::PathBuf, str::FromStr};
 
 use chrono::Duration;
 use clap::{Parser, ValueEnum};
@@ -25,6 +25,7 @@ use figment::{
 };
 use log::{warn, LevelFilter};
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 use crate::pipewire_connection::graph::filter::{NodeFilter, SinkFilter};
 
@@ -32,12 +33,14 @@ mod cli;
 use cli::Args;
 
 /// Struct that stores the settings that affect the tool behaviour
+#[serde_as]
 #[derive(Deserialize)]
 pub struct Settings {
     #[serde(default = "defalt_media_minimum_duration")]
     media_minimum_duration: i64,
 
     #[serde(default = "default_idle_inhibitor")]
+    #[serde_as(as = "DisplayFromStr")]
     idle_inhibitor: IdleInhibitor,
 
     #[serde(default = "default_verbosity")]
@@ -133,3 +136,26 @@ impl Display for IdleInhibitor {
         }
     }
 }
+
+impl FromStr for IdleInhibitor {
+    type Err = ParseIdleInhibitorError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "d-bus" => Ok(Self::DBus),
+            "dry-run" => Ok(Self::DryRun),
+            "wayland" => Ok(Self::Wayland),
+            _ => Err(ParseIdleInhibitorError),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseIdleInhibitorError;
+
+impl Display for ParseIdleInhibitorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Provided value is not a valid IdleInhibitor variant")
+    }
+}
+
+impl Error for ParseIdleInhibitorError {}

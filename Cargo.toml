@@ -28,3 +28,4 @@ xdg = "2.5"
 figment = { version = "0.10", features = ["toml"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_regex = "1.1"
+serde_with = "3.7.0"

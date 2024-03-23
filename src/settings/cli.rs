@@ -21,12 +21,14 @@ use std::fmt::Display;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, NoneAsEmptyString};
 
 use super::IdleInhibitor;
 
 /// Struct used to derive, parse and serialise CLI args. Some of the fields will not be used by the
 /// application and are only relevant in the context of CLI arguments, and thus have their
 /// serialisation skipped.
+#[serde_as]
 #[derive(Parser, Debug, Serialize, Deserialize)]
 #[command(author, version, about)]
 pub struct Args {
@@ -69,6 +71,7 @@ pub struct Args {
         help = format!("Sets what idle inhibitor backend to use [default: {}]", super::default_idle_inhibitor())
     )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde_as(as = "NoneAsEmptyString")]
     idle_inhibitor: Option<IdleInhibitor>,
 
     #[arg(
