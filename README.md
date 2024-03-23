@@ -2,22 +2,37 @@
 
 ## Description
 
-Suspends automatic idling of Wayland compositors when media is being played
-through Pipewire.
+Suspends automatic idling when media is being played through Pipewire.
 
-Depends on the Wayland experimental protocol
-[idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1)
-and [PipeWire](https://www.pipewire.org/).
+For detecting media being played, it depends on [PipeWire](https://www.pipewire.org/).
 
-Main features:
+For inhibiting idle, it depends, either on:
+
+- Wayland compositors implementing the experimental protocol
+  [idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1)
+- Daemons implementing the D-Bus
+  [org.freedesktop.ScreenSaver](https://specifications.freedesktop.org/idle-inhibit-spec/latest/re01.html)
+  service
+
+### Main features
 
 - Inhibit idle when any app plays audio through PipeWire
 - Customisable minimum media duration to inhibit idle (Useful for keeping
   notifications from inhibiting idle)
 - Customisable list of client filters (Useful for ignoring certain programs,
   such as background music)
+- Support for idle inhibiting through Wayland compositors and dbus services
 
 Feedback and contributions are welcome!
+
+## Tested on
+
+- Sway: works fine with the default wayland idle inhibitor
+- Plasma: while in theory it implements the `idle-inhibit-unstable-v1` protocol
+  it seems to be broken. Works fine using the dbus idle inhibitor.
+
+Should work fine with any compositor that implements `idle-inhibit-unstable-v1`
+or any compositor/DE that offers the `org.freedesktop.ScreenSaver` service.
 
 ## Availability
 
@@ -37,6 +52,16 @@ Options:
           Log verbosity [possible values: OFF, ERROR, WARN, INFO, DEBUG, TRACE]
   -q, --quiet
           Disables logging completely
+  -b, --dbus
+          Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor
+  -B, --no-dbus
+          Disables DBus idle inhibitor
+  -w, --wayland
+          Enable Wayland idle inhibitor (Enabled by default)
+  -W, --no-wayland
+          Disables Wayland idle inhibitor
+  -n, --dry-run
+          Only logs (at INFO level) about idle inhibitor state changes
   -c, --config <PATH>
           Path to config file
   -h, --help
