@@ -82,25 +82,17 @@ fn main() {
         settings.get_node_blacklist().to_vec(),
     );
 
-    let mut idle_inhibitors: Vec<Box<dyn IdleInhibitor>> = Vec::new();
-
-    if settings.is_dbus_enabled() {
-        match DbusIdleInhibitor::new() {
-            Ok(dbus_idle_inhibitor) => idle_inhibitors.push(Box::new(dbus_idle_inhibitor)),
+    let mut idle_inhibitor: Box<dyn IdleInhibitor> = match settings.get_idle_inhibitor() {
+        settings::IdleInhibitor::DBus => match DbusIdleInhibitor::new() {
+            Ok(dbus_idle_inhibitor) => Box::new(dbus_idle_inhibitor),
             Err(error) => panic!("{}", error),
-        }
-    }
-
-    if settings.is_wayland_enabled() {
-        match WaylandIdleInhibitor::new() {
-            Ok(wayland_idle_inhibitor) => idle_inhibitors.push(Box::new(wayland_idle_inhibitor)),
+        },
+        settings::IdleInhibitor::Wayland => match WaylandIdleInhibitor::new() {
+            Ok(wayland_idle_inhibitor) => Box::new(wayland_idle_inhibitor),
             Err(error) => panic!("{}", error),
-        };
-    }
-
-    if settings.is_dry_run() {
-        idle_inhibitors.push(Box::<DryRunIdleInhibitor>::default());
-    }
+        },
+        settings::IdleInhibitor::DryRun => Box::<DryRunIdleInhibitor>::default(),
+    };
 
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(settings.get_media_minimum_duration(), event_queue_sender);
@@ -120,18 +112,12 @@ fn main() {
             Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                 match inhibit_idle_state_event {
                     InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                        if inhibit_idle_state {
-                            idle_inhibitors.iter_mut().for_each(|idle_inhibitor| {
-                                if let Err(error) = idle_inhibitor.inhibit() {
-                                    panic!("{}", error);
-                                }
-                            });
+                        if let Err(error) = if inhibit_idle_state {
+                            idle_inhibitor.inhibit()
                         } else {
-                            idle_inhibitors.iter_mut().for_each(|idle_inhibitor| {
-                                if let Err(error) = idle_inhibitor.uninhibit() {
-                                    panic!("{}", error);
-                                }
-                            });
+                            idle_inhibitor.uninhibit()
+                        } {
+                            panic!("{}", error);
                         }
                     }
                 }

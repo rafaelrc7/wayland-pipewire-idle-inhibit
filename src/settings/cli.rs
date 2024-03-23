@@ -22,6 +22,8 @@ use clap::{builder::PossibleValue, Parser, ValueEnum};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
 
+use super::IdleInhibitor;
+
 /// Struct used to derive, parse and serialise CLI args. Some of the fields will not be used by the
 /// application and are only relevant in the context of CLI arguments, and thus have their
 /// serialisation skipped.
@@ -58,56 +60,51 @@ pub struct Args {
     quiet: bool,
 
     #[arg(
-        short = 'b',
-        long = "dbus",
-        default_value = false.to_string(),
-        default_value_if("no_dbus", true.to_string(), false.to_string()),
-        default_value_if("dry_run", true.to_string(), false.to_string()),
-        conflicts_with = "no_dbus",
-        conflicts_with = "dry_run",
-        help="Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor"
+        short = 'i',
+        long = "idle-inhibitor",
+        value_name = "IDLE INHIBITOR BACKEND",
+        default_value_if("dbus", true.to_string(), IdleInhibitor::DBus.to_string()),
+        default_value_if("wayland", true.to_string(), IdleInhibitor::Wayland.to_string()),
+        default_value_if("dry_run", true.to_string(), IdleInhibitor::DryRun.to_string()),
+        help = format!("Sets what idle inhibitor backend to use [default: {}]", super::default_idle_inhibitor())
     )]
-    dbus: bool,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    idle_inhibitor: Option<IdleInhibitor>,
 
     #[arg(
-        short = 'B',
-        long = "no-dbus",
-        conflicts_with = "dbus",
-        help = "Disables DBus idle inhibitor"
+        short = 'b',
+        long = "d-bus",
+        conflicts_with = "wayland",
+        conflicts_with = "dry_run",
+        conflicts_with = "idle_inhibitor",
+        help = "Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor"
     )]
     #[serde(skip_serializing)]
     #[serde(default)]
-    no_dbus: bool,
+    dbus: bool,
 
     #[arg(
         short = 'w',
         long = "wayland",
-        default_value = true.to_string(),
-        default_value_if("no_wayland", true.to_string(), false.to_string()),
-        default_value_if("dry_run", true.to_string(), false.to_string()),
-        conflicts_with = "no_wayland",
+        conflicts_with = "dbus",
         conflicts_with = "dry_run",
-        help="Enable Wayland idle inhibitor (Enabled by default)"
-    )]
-    wayland: bool,
-
-    #[arg(
-        short = 'W',
-        long = "no-wayland",
-        conflicts_with = "wayland",
-        help = "Disables Wayland idle inhibitor"
+        conflicts_with = "idle_inhibitor",
+        help = "Enable Wayland idle inhibitor"
     )]
     #[serde(skip_serializing)]
     #[serde(default)]
-    no_wayland: bool,
+    wayland: bool,
 
     #[arg(
         short = 'n',
         long = "dry-run",
-        default_value = false.to_string(),
+        conflicts_with = "dbus",
         conflicts_with = "wayland",
+        conflicts_with = "idle_inhibitor",
         help = "Only logs (at INFO level) about idle inhibitor state changes"
     )]
+    #[serde(skip_serializing)]
+    #[serde(default)]
     dry_run: bool,
 
     #[arg(short, long, value_name = "PATH", help = "Path to config file")]

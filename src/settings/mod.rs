@@ -15,16 +15,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! Module responsible with the tool's configuration
-use std::{cmp::Ordering, error::Error, path::PathBuf};
+use std::{cmp::Ordering, error::Error, fmt::Display, path::PathBuf};
 
 use chrono::Duration;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
 use log::{warn, LevelFilter};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::pipewire_connection::graph::filter::{NodeFilter, SinkFilter};
 
@@ -37,6 +37,9 @@ pub struct Settings {
     #[serde(default = "defalt_media_minimum_duration")]
     media_minimum_duration: i64,
 
+    #[serde(default = "default_idle_inhibitor")]
+    idle_inhibitor: IdleInhibitor,
+
     #[serde(default = "default_verbosity")]
     verbosity: LevelFilter,
 
@@ -45,15 +48,6 @@ pub struct Settings {
 
     #[serde(default)]
     node_blacklist: Vec<NodeFilter>,
-
-    #[serde(default = "default_dbus")]
-    dbus: bool,
-
-    #[serde(default = "default_wayland")]
-    wayland: bool,
-
-    #[serde(default = "default_dry_run")]
-    dry_run: bool,
 }
 
 impl Settings {
@@ -103,16 +97,8 @@ impl Settings {
         &self.node_blacklist
     }
 
-    pub fn is_dbus_enabled(&self) -> bool {
-        self.dbus
-    }
-
-    pub fn is_wayland_enabled(&self) -> bool {
-        self.wayland
-    }
-
-    pub fn is_dry_run(&self) -> bool {
-        self.dry_run
+    pub fn get_idle_inhibitor(&self) -> &IdleInhibitor {
+        &self.idle_inhibitor
     }
 }
 
@@ -126,14 +112,24 @@ fn default_verbosity() -> LevelFilter {
     LevelFilter::Warn
 }
 
-fn default_dbus() -> bool {
-    false
+/// Default IdleInhibitor backend, set to [IdleInhibitor::Wayland]
+const fn default_idle_inhibitor() -> IdleInhibitor {
+    IdleInhibitor::Wayland
 }
 
-fn default_wayland() -> bool {
-    true
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
+pub enum IdleInhibitor {
+    DBus,
+    DryRun,
+    Wayland,
 }
 
-fn default_dry_run() -> bool {
-    false
+impl Display for IdleInhibitor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::DBus => f.write_str("d-bus"),
+            Self::DryRun => f.write_str("dry-run"),
+            Self::Wayland => f.write_str("wayland"),
+        }
+    }
 }
