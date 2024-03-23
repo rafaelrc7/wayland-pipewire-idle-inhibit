@@ -57,8 +57,7 @@ pub struct Args {
         conflicts_with = "verbosity",
         help = "Disables logging completely"
     )]
-    #[serde(skip_serializing)]
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     quiet: bool,
 
     #[arg(
@@ -82,8 +81,7 @@ pub struct Args {
         conflicts_with = "idle_inhibitor",
         help = "Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor"
     )]
-    #[serde(skip_serializing)]
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     dbus: bool,
 
     #[arg(
@@ -94,8 +92,7 @@ pub struct Args {
         conflicts_with = "idle_inhibitor",
         help = "Enable Wayland idle inhibitor"
     )]
-    #[serde(skip_serializing)]
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     wayland: bool,
 
     #[arg(
@@ -106,12 +103,11 @@ pub struct Args {
         conflicts_with = "idle_inhibitor",
         help = "Only logs (at INFO level) about idle inhibitor state changes"
     )]
-    #[serde(skip_serializing)]
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     dry_run: bool,
 
     #[arg(short, long, value_name = "PATH", help = "Path to config file")]
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     pub config: Option<String>,
 }
 

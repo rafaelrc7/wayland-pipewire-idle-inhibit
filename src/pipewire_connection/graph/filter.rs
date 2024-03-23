@@ -72,8 +72,7 @@ fn matches_property(filter: &Option<Regex>, property: Option<&str>) -> bool {
 /// [super::NodeData]s.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SinkFilter {
-    #[serde(with = "serde_regex")]
-    #[serde(default)]
+    #[serde(default, with = "serde_regex")]
     name: Option<Regex>,
 }
 
@@ -86,24 +85,19 @@ impl Filter<NodeData> for SinkFilter {
 /// Represents a [Filter] over a generic Node, and thus filters over [super::NodeData]s.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NodeFilter {
-    #[serde(with = "serde_regex")]
-    #[serde(default)]
+    #[serde(default, with = "serde_regex")]
     name: Option<Regex>,
 
-    #[serde(with = "serde_regex")]
-    #[serde(default)]
+    #[serde(default, with = "serde_regex")]
     app_name: Option<Regex>,
 
-    #[serde(with = "serde_regex")]
-    #[serde(default)]
+    #[serde(default, with = "serde_regex")]
     media_class: Option<Regex>,
 
-    #[serde(with = "serde_regex")]
-    #[serde(default)]
+    #[serde(default, with = "serde_regex")]
     media_role: Option<Regex>,
 
-    #[serde(with = "serde_regex")]
-    #[serde(default)]
+    #[serde(default, with = "serde_regex")]
     media_software: Option<Regex>,
 }
 
