@@ -58,6 +58,28 @@ pub struct Args {
     quiet: bool,
 
     #[arg(
+        short = 'b',
+        long = "dbus",
+        default_value = false.to_string(),
+        default_value_if("no_dbus", true.to_string(), false.to_string()),
+        default_value_if("dry_run", true.to_string(), false.to_string()),
+        conflicts_with = "no_dbus",
+        conflicts_with = "dry_run",
+        help="Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor"
+    )]
+    dbus: bool,
+
+    #[arg(
+        short = 'B',
+        long = "no-dbus",
+        conflicts_with = "dbus",
+        help = "Disables DBus idle inhibitor"
+    )]
+    #[serde(skip_serializing)]
+    #[serde(default)]
+    no_dbus: bool,
+
+    #[arg(
         short = 'w',
         long = "wayland",
         default_value = true.to_string(),

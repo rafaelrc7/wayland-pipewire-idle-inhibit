@@ -28,7 +28,9 @@ mod pipewire_connection;
 use pipewire_connection::{PWEvent, PWMsg, PWThread};
 
 mod idle_inhibitor;
-use idle_inhibitor::{dry::DryRunIdleInhibitor, wayland::WaylandIdleInhibitor, IdleInhibitor};
+use idle_inhibitor::{
+    dbus::DbusIdleInhibitor, dry::DryRunIdleInhibitor, wayland::WaylandIdleInhibitor, IdleInhibitor,
+};
 
 mod settings;
 use settings::Settings;
@@ -81,6 +83,13 @@ fn main() {
     );
 
     let mut idle_inhibitors: Vec<Box<dyn IdleInhibitor>> = Vec::new();
+
+    if settings.is_dbus_enabled() {
+        match DbusIdleInhibitor::new() {
+            Ok(dbus_idle_inhibitor) => idle_inhibitors.push(Box::new(dbus_idle_inhibitor)),
+            Err(error) => panic!("{}", error),
+        }
+    }
 
     if settings.is_wayland_enabled() {
         match WaylandIdleInhibitor::new() {

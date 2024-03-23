@@ -46,6 +46,9 @@ pub struct Settings {
     #[serde(default)]
     node_blacklist: Vec<NodeFilter>,
 
+    #[serde(default = "default_dbus")]
+    dbus: bool,
+
     #[serde(default = "default_wayland")]
     wayland: bool,
 
@@ -100,6 +103,10 @@ impl Settings {
         &self.node_blacklist
     }
 
+    pub fn is_dbus_enabled(&self) -> bool {
+        self.dbus
+    }
+
     pub fn is_wayland_enabled(&self) -> bool {
         self.wayland
     }
@@ -117,6 +124,10 @@ fn defalt_media_minimum_duration() -> i64 {
 /// Default log verbosity, set to [LevelFilter::Warn]
 fn default_verbosity() -> LevelFilter {
     LevelFilter::Warn
+}
+
+fn default_dbus() -> bool {
+    false
 }
 
 fn default_wayland() -> bool {
