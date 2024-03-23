@@ -61,8 +61,10 @@ pub struct Args {
         long = "wayland",
         default_value = true.to_string(),
         default_value_if("no_wayland", true.to_string(), false.to_string()),
+        default_value_if("dry_run", true.to_string(), false.to_string()),
         help="Enable Wayland idle inhibitor",
-        conflicts_with = "no_wayland")]
+        conflicts_with = "no_wayland",
+        conflicts_with = "dry_run")]
     wayland: bool,
 
     #[arg(
@@ -74,6 +76,15 @@ pub struct Args {
     #[serde(skip_serializing)]
     #[serde(default)]
     no_wayland: bool,
+
+    #[arg(
+        short = 'n',
+        long = "dry-run",
+        default_value = false.to_string(),
+        help = "Only logs about idle inhibitor state changes",
+        conflicts_with = "wayland"
+    )]
+    dry_run: bool,
 
     #[arg(short, long, value_name = "PATH", help = "Path to config file")]
     #[serde(skip_serializing)]

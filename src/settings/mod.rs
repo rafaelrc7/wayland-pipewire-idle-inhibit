@@ -49,6 +49,9 @@ pub struct Settings {
 
     #[serde(default = "default_wayland")]
     wayland: bool,
+
+    #[serde(default = "default_dry_run")]
+    dry_run: bool,
 }
 
 impl Settings {
@@ -96,6 +99,10 @@ impl Settings {
     pub fn is_wayland_enabled(&self) -> bool {
         self.wayland
     }
+
+    pub fn is_dry_run(&self) -> bool {
+        self.dry_run
+    }
 }
 
 /// Default media minimum duration, set to 5 seconds
@@ -110,4 +117,8 @@ fn default_verbosity() -> LevelFilter {
 
 fn default_wayland() -> bool {
     true
+}
+
+fn default_dry_run() -> bool {
+    false
 }

@@ -28,7 +28,7 @@ mod pipewire_connection;
 use pipewire_connection::{PWEvent, PWMsg, PWThread};
 
 mod idle_inhibitor;
-use idle_inhibitor::{wayland::WaylandIdleInhibitor, IdleInhibitor};
+use idle_inhibitor::{dry::DryRunIdleInhibitor, wayland::WaylandIdleInhibitor, IdleInhibitor};
 
 mod settings;
 use settings::Settings;
@@ -87,6 +87,10 @@ fn main() {
             Ok(wayland_idle_inhibitor) => idle_inhibitors.push(Box::new(wayland_idle_inhibitor)),
             Err(error) => panic!("{}", error),
         };
+    }
+
+    if settings.is_dry_run() {
+        idle_inhibitors.push(Box::<DryRunIdleInhibitor>::default());
     }
 
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =

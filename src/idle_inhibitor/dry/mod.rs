@@ -16,10 +16,31 @@
 
 use std::error::Error;
 
-pub mod dry;
-pub mod wayland;
+use log::info;
 
-pub trait IdleInhibitor {
-    fn inhibit(&mut self) -> Result<(), Box<dyn Error>>;
-    fn uninhibit(&mut self) -> Result<(), Box<dyn Error>>;
+use super::IdleInhibitor;
+
+#[derive(Default)]
+pub struct DryRunIdleInhibitor {
+    is_idle_inhibited: bool,
+}
+
+impl IdleInhibitor for DryRunIdleInhibitor {
+    fn inhibit(&mut self) -> Result<(), Box<dyn Error>> {
+        if !self.is_idle_inhibited {
+            self.is_idle_inhibited = true;
+            info!(target: "DryRunIdleInhibitor::inhibit", "Idle Inhibitor was ENABLED");
+        }
+
+        Ok(())
+    }
+
+    fn uninhibit(&mut self) -> Result<(), Box<dyn Error>> {
+        if self.is_idle_inhibited {
+            self.is_idle_inhibited = false;
+            info!(target: "DryRunIdleInhibitor::inhibit", "Idle Inhibitor was DISABLED");
+        }
+
+        Ok(())
+    }
 }
