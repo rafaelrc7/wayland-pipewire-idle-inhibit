@@ -16,6 +16,7 @@
 
 use std::error::Error;
 
+pub mod dbus;
 pub mod dry;
 pub mod wayland;
 
