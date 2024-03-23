@@ -35,7 +35,7 @@ pub struct Args {
         long,
         value_name = "SECONDS",
         allow_negative_numbers = false,
-        help = "Minimum media duration to inhibit idle"
+        help = format!("Minimum media duration to inhibit idle [default: {}]", super::defalt_media_minimum_duration())
     )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     media_minimum_duration: Option<i64>,
@@ -44,7 +44,7 @@ pub struct Args {
         short,
         long,
         default_value_if("quiet", true.to_string(), LogLevel(LevelFilter::Off).to_string()),
-        help="Log verbosity"
+        help = format!("Log verbosity [default: {}]", super::default_verbosity())
     )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     verbosity: Option<LogLevel>,
