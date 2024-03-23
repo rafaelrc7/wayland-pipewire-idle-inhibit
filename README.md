@@ -47,19 +47,17 @@ Usage: wayland-pipewire-idle-inhibit [OPTIONS]
 
 Options:
   -d, --media-minimum-duration <SECONDS>
-          Minimum media duration to inhibit idle
+          Minimum media duration to inhibit idle [default: 5]
   -v, --verbosity <VERBOSITY>
-          Log verbosity [possible values: OFF, ERROR, WARN, INFO, DEBUG, TRACE]
+          Log verbosity [default: WARN] [possible values: OFF, ERROR, WARN, INFO, DEBUG, TRACE]
   -q, --quiet
           Disables logging completely
-  -b, --dbus
+  -i, --idle-inhibitor <IDLE INHIBITOR BACKEND>
+          Sets what idle inhibitor backend to use [default: wayland] [possible values: d-bus, dry-run, wayland]
+  -b, --d-bus
           Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor
-  -B, --no-dbus
-          Disables DBus idle inhibitor
   -w, --wayland
-          Enable Wayland idle inhibitor (Enabled by default)
-  -W, --no-wayland
-          Disables Wayland idle inhibitor
+          Enable Wayland idle inhibitor
   -n, --dry-run
           Only logs (at INFO level) about idle inhibitor state changes
   -c, --config <PATH>
@@ -148,6 +146,7 @@ services.wayland-pipewire-idle-inhibit = {
   settings = {
     verbosity = "INFO";
     media_minimum_duration = 10;
+    idle_inhibitor = "wayland";
     sink_whitelist = [
       { name = "Starship/Matisse HD Audio Controller Analog Stereo"; }
     ];
@@ -217,6 +216,7 @@ set using `--config <PATH>`.
 ```toml
 verbosity = "WARN"
 media_minimum_duration = 5
+idle_inhibitor = "wayland"
 sink_whitelist = [ ]
 node_blacklist = [ ]
 ```
