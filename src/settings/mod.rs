@@ -103,12 +103,12 @@ impl Settings {
 }
 
 /// Default media minimum duration, set to 5 seconds
-fn defalt_media_minimum_duration() -> i64 {
+const fn defalt_media_minimum_duration() -> i64 {
     5
 }
 
 /// Default log verbosity, set to [LevelFilter::Warn]
-fn default_verbosity() -> LevelFilter {
+const fn default_verbosity() -> LevelFilter {
     LevelFilter::Warn
 }
 
