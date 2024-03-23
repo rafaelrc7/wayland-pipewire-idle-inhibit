@@ -42,7 +42,8 @@ pub struct Args {
         short,
         long,
         default_value_if("quiet", true.to_string(), LogLevel(LevelFilter::Off).to_string()),
-        help="Log verbosity")]
+        help="Log verbosity"
+    )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     verbosity: Option<LogLevel>,
 
@@ -62,16 +63,17 @@ pub struct Args {
         default_value = true.to_string(),
         default_value_if("no_wayland", true.to_string(), false.to_string()),
         default_value_if("dry_run", true.to_string(), false.to_string()),
-        help="Enable Wayland idle inhibitor",
         conflicts_with = "no_wayland",
-        conflicts_with = "dry_run")]
+        conflicts_with = "dry_run",
+        help="Enable Wayland idle inhibitor (Enabled by default)"
+    )]
     wayland: bool,
 
     #[arg(
         short = 'W',
         long = "no-wayland",
-        help = "Disables Wayland idle inhibitor",
-        conflicts_with = "wayland"
+        conflicts_with = "wayland",
+        help = "Disables Wayland idle inhibitor"
     )]
     #[serde(skip_serializing)]
     #[serde(default)]
@@ -81,8 +83,8 @@ pub struct Args {
         short = 'n',
         long = "dry-run",
         default_value = false.to_string(),
-        help = "Only logs about idle inhibitor state changes",
-        conflicts_with = "wayland"
+        conflicts_with = "wayland",
+        help = "Only logs (at INFO level) about idle inhibitor state changes"
     )]
     dry_run: bool,
 
