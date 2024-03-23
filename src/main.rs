@@ -79,10 +79,13 @@ fn main() {
         settings.get_sink_whitelist().to_vec(),
         settings.get_node_blacklist().to_vec(),
     );
-    let mut wayland_idle_inhibitor: Box<dyn IdleInhibitor> = match WaylandIdleInhibitor::new() {
-        Ok(wayland_idle_inhibitor) => Box::new(wayland_idle_inhibitor),
+
+    let mut idle_inhibitors: Vec<Box<dyn IdleInhibitor>> = Vec::new();
+    match WaylandIdleInhibitor::new() {
+        Ok(wayland_idle_inhibitor) => idle_inhibitors.push(Box::new(wayland_idle_inhibitor)),
         Err(error) => panic!("{}", error),
     };
+
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(settings.get_media_minimum_duration(), event_queue_sender);
 
@@ -101,13 +104,19 @@ fn main() {
             Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                 match inhibit_idle_state_event {
                     InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                        if let Err(error) = if inhibit_idle_state {
-                            wayland_idle_inhibitor.inhibit()
+                        if inhibit_idle_state {
+                            idle_inhibitors.iter_mut().for_each(|idle_inhibitor| {
+                                if let Err(error) = idle_inhibitor.inhibit() {
+                                    panic!("{}", error);
+                                }
+                            });
                         } else {
-                            wayland_idle_inhibitor.uninhibit()
-                        } {
-                            panic!("{}", error);
-                        };
+                            idle_inhibitors.iter_mut().for_each(|idle_inhibitor| {
+                                if let Err(error) = idle_inhibitor.uninhibit() {
+                                    panic!("{}", error);
+                                }
+                            });
+                        }
                     }
                 }
             }
