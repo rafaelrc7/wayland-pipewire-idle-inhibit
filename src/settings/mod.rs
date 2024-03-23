@@ -15,8 +15,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! Module responsible with the tool's configuration
-
-use std::{error::Error, path::PathBuf};
+use std::{cmp::Ordering, error::Error, path::PathBuf};
 
 use chrono::Duration;
 use clap::Parser;
@@ -24,7 +23,7 @@ use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use log::LevelFilter;
+use log::{warn, LevelFilter};
 use serde::Deserialize;
 
 use crate::pipewire_connection::graph::filter::{NodeFilter, SinkFilter};
@@ -75,9 +74,14 @@ impl Settings {
     /// Getter for the media minimum duration with the [chrono::Duration] type. If the set duration
     /// is 0, [None] is returned, to easily detect if this check is necessary
     pub fn get_media_minimum_duration(&self) -> Option<Duration> {
-        match self.media_minimum_duration {
-            0 => None,
-            d => Some(Duration::seconds(d)),
+        match self.media_minimum_duration.cmp(&0) {
+            Ordering::Less => {
+                warn!(target: "Settings::get_media_minimum_duration",
+                    "Tried to use a negative value as media minimum duration! Assuming as zero.");
+                None
+            }
+            Ordering::Equal => None,
+            Ordering::Greater => Some(Duration::seconds(self.media_minimum_duration)),
         }
     }
 
