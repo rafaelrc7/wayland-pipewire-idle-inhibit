@@ -44,12 +44,17 @@ impl<'a> DbusIdleInhibitor<'a> {
         let dbus_connection = Connection::session()?;
         let dbus_proxy = ScreenSaverProxyBlocking::new(&dbus_connection)?;
 
-        debug!(target: "DbusIdleInhibitor::new", "DBus Idle Inhibitor created");
-        Ok(DbusIdleInhibitor {
+        let mut dbus_idle_inhibitor = DbusIdleInhibitor {
             _dbus_connection: dbus_connection,
             dbus_proxy,
             cookie: None,
-        })
+        };
+
+        dbus_idle_inhibitor.inhibit()?;
+        dbus_idle_inhibitor.uninhibit()?;
+
+        debug!(target: "DbusIdleInhibitor::new", "DBus Idle Inhibitor created");
+        Ok(dbus_idle_inhibitor)
     }
 }
 
@@ -83,6 +88,7 @@ impl IdleInhibitor for DbusIdleInhibitor<'_> {
             self.cookie = None;
             info!(target: "DbusIdleInhibitor::uninhibit", "Idle Inhibitor was DISABLED");
         }
+
         Ok(())
     }
 }
