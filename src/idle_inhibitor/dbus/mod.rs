@@ -16,7 +16,7 @@
 
 use std::error::Error;
 
-use log::{debug, info};
+use log::{debug, error, info};
 use zbus::{blocking::Connection, proxy};
 
 use super::IdleInhibitor;
@@ -50,6 +50,17 @@ impl<'a> DbusIdleInhibitor<'a> {
             dbus_proxy,
             cookie: None,
         })
+    }
+}
+
+impl Drop for DbusIdleInhibitor<'_> {
+    fn drop(&mut self) {
+        if let Some(cookie) = self.cookie {
+            if let Err(error) = self.dbus_proxy.UnInhibit(cookie) {
+                error!(target: "DbusIdleInhibitor::drop", "{error}");
+            }
+            self.cookie = None;
+        }
     }
 }
 
