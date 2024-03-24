@@ -21,10 +21,14 @@ use std::fmt::Display;
 use clap::{builder::PossibleValue, Parser, ValueEnum};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, NoneAsEmptyString};
+
+use super::IdleInhibitor;
 
 /// Struct used to derive, parse and serialise CLI args. Some of the fields will not be used by the
 /// application and are only relevant in the context of CLI arguments, and thus have their
 /// serialisation skipped.
+#[serde_as]
 #[derive(Parser, Debug, Serialize, Deserialize)]
 #[command(author, version, about)]
 pub struct Args {
@@ -33,7 +37,7 @@ pub struct Args {
         long,
         value_name = "SECONDS",
         allow_negative_numbers = false,
-        help = "Minimum media duration to inhibit idle"
+        help = format!("Minimum media duration to inhibit idle [default: {}]", super::defalt_media_minimum_duration())
     )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     media_minimum_duration: Option<i64>,
@@ -42,7 +46,8 @@ pub struct Args {
         short,
         long,
         default_value_if("quiet", true.to_string(), LogLevel(LevelFilter::Off).to_string()),
-        help="Log verbosity")]
+        help = format!("Log verbosity [default: {}]", super::default_verbosity())
+    )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     verbosity: Option<LogLevel>,
 
@@ -52,12 +57,57 @@ pub struct Args {
         conflicts_with = "verbosity",
         help = "Disables logging completely"
     )]
-    #[serde(skip_serializing)]
-    #[serde(default)]
+    #[serde(default, skip_serializing)]
     quiet: bool,
 
+    #[arg(
+        short = 'i',
+        long = "idle-inhibitor",
+        value_name = "IDLE INHIBITOR BACKEND",
+        default_value_if("dbus", true.to_string(), IdleInhibitor::DBus.to_string()),
+        default_value_if("wayland", true.to_string(), IdleInhibitor::Wayland.to_string()),
+        default_value_if("dry_run", true.to_string(), IdleInhibitor::DryRun.to_string()),
+        help = format!("Sets what idle inhibitor backend to use [default: {}]", super::default_idle_inhibitor())
+    )]
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    #[serde_as(as = "NoneAsEmptyString")]
+    idle_inhibitor: Option<IdleInhibitor>,
+
+    #[arg(
+        short = 'b',
+        long = "d-bus",
+        conflicts_with = "wayland",
+        conflicts_with = "dry_run",
+        conflicts_with = "idle_inhibitor",
+        help = "Enable DBus (org.freedesktop.ScreenSaver) idle inhibitor"
+    )]
+    #[serde(default, skip_serializing)]
+    dbus: bool,
+
+    #[arg(
+        short = 'w',
+        long = "wayland",
+        conflicts_with = "dbus",
+        conflicts_with = "dry_run",
+        conflicts_with = "idle_inhibitor",
+        help = "Enable Wayland idle inhibitor"
+    )]
+    #[serde(default, skip_serializing)]
+    wayland: bool,
+
+    #[arg(
+        short = 'n',
+        long = "dry-run",
+        conflicts_with = "dbus",
+        conflicts_with = "wayland",
+        conflicts_with = "idle_inhibitor",
+        help = "Only logs (at INFO level) about idle inhibitor state changes"
+    )]
+    #[serde(default, skip_serializing)]
+    dry_run: bool,
+
     #[arg(short, long, value_name = "PATH", help = "Path to config file")]
-    #[serde(skip_serializing)]
+    #[serde(default, skip_serializing)]
     pub config: Option<String>,
 }
 

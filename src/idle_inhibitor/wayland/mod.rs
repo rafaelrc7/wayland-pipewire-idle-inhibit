@@ -34,6 +34,8 @@ use wayland_protocols::wp::idle_inhibit::zv1::client::{
 
 use log::{debug, info, warn};
 
+use super::IdleInhibitor;
+
 /// Wrapper to the Wayland objects and the idle inhibitor protocol
 pub struct WaylandIdleInhibitor {
     _connection: Connection,
@@ -42,6 +44,16 @@ pub struct WaylandIdleInhibitor {
     qhandle: QueueHandle<AppData>,
     _registry: WlRegistry,
     data: AppData,
+}
+
+impl IdleInhibitor for WaylandIdleInhibitor {
+    fn inhibit(&mut self) -> Result<(), Box<dyn Error>> {
+        self.set_inhibit_idle(true)
+    }
+
+    fn uninhibit(&mut self) -> Result<(), Box<dyn Error>> {
+        self.set_inhibit_idle(false)
+    }
 }
 
 impl WaylandIdleInhibitor {

@@ -15,17 +15,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! Module responsible with the tool's configuration
-
-use std::{error::Error, path::PathBuf};
+use std::{cmp::Ordering, error::Error, fmt::Display, path::PathBuf, str::FromStr};
 
 use chrono::Duration;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use figment::{
     providers::{Format, Serialized, Toml},
     Figment,
 };
-use log::LevelFilter;
-use serde::Deserialize;
+use log::{warn, LevelFilter};
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
 use crate::pipewire_connection::graph::filter::{NodeFilter, SinkFilter};
 
@@ -33,10 +33,15 @@ mod cli;
 use cli::Args;
 
 /// Struct that stores the settings that affect the tool behaviour
+#[serde_as]
 #[derive(Deserialize)]
 pub struct Settings {
     #[serde(default = "defalt_media_minimum_duration")]
     media_minimum_duration: i64,
+
+    #[serde(default = "default_idle_inhibitor")]
+    #[serde_as(as = "DisplayFromStr")]
+    idle_inhibitor: IdleInhibitor,
 
     #[serde(default = "default_verbosity")]
     verbosity: LevelFilter,
@@ -69,9 +74,14 @@ impl Settings {
     /// Getter for the media minimum duration with the [chrono::Duration] type. If the set duration
     /// is 0, [None] is returned, to easily detect if this check is necessary
     pub fn get_media_minimum_duration(&self) -> Option<Duration> {
-        match self.media_minimum_duration {
-            0 => None,
-            d => Some(Duration::seconds(d)),
+        match self.media_minimum_duration.cmp(&0) {
+            Ordering::Less => {
+                warn!(target: "Settings::get_media_minimum_duration",
+                    "Tried to use a negative value as media minimum duration! Assuming as zero.");
+                None
+            }
+            Ordering::Equal => None,
+            Ordering::Greater => Some(Duration::seconds(self.media_minimum_duration)),
         }
     }
 
@@ -89,14 +99,68 @@ impl Settings {
     pub fn get_node_blacklist(&self) -> &Vec<NodeFilter> {
         &self.node_blacklist
     }
+
+    pub fn get_idle_inhibitor(&self) -> &IdleInhibitor {
+        &self.idle_inhibitor
+    }
 }
 
 /// Default media minimum duration, set to 5 seconds
-fn defalt_media_minimum_duration() -> i64 {
+const fn defalt_media_minimum_duration() -> i64 {
     5
 }
 
 /// Default log verbosity, set to [LevelFilter::Warn]
-fn default_verbosity() -> LevelFilter {
+const fn default_verbosity() -> LevelFilter {
     LevelFilter::Warn
 }
+
+/// Default IdleInhibitor backend, set to [IdleInhibitor::Wayland]
+const fn default_idle_inhibitor() -> IdleInhibitor {
+    IdleInhibitor::Wayland
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, ValueEnum)]
+pub enum IdleInhibitor {
+    DBus,
+    DryRun,
+    Wayland,
+}
+
+impl Display for IdleInhibitor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::DBus => f.write_str("d-bus"),
+            Self::DryRun => f.write_str("dry-run"),
+            Self::Wayland => f.write_str("wayland"),
+        }
+    }
+}
+
+impl FromStr for IdleInhibitor {
+    type Err = ParseIdleInhibitorError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "d-bus" => Ok(Self::DBus),
+            "dbus" => Ok(Self::DBus),
+            "dry-run" => Ok(Self::DryRun),
+            "wayland" => Ok(Self::Wayland),
+            _ => Err(ParseIdleInhibitorError(s.into())),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ParseIdleInhibitorError(String);
+
+impl Display for ParseIdleInhibitorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        format!(
+            "Provided value '{}' is not a valid IdleInhibitor variant",
+            self.0
+        )
+        .fmt(f)
+    }
+}
+
+impl Error for ParseIdleInhibitorError {}

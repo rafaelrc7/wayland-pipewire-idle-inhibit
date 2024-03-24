@@ -21,9 +21,11 @@ chrono = "0.4"
 signal-hook = "0.3"
 wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
 wayland-client = "0.31"
+zbus = "4.1"
 clap = { version = "4.4.12", features = ["derive", "cargo", "string"] }
 regex = "1.10"
 xdg = "2.5"
 figment = { version = "0.10", features = ["toml"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_regex = "1.1"
+serde_with = "3.7.0"

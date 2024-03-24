@@ -27,8 +27,10 @@ use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
 mod pipewire_connection;
 use pipewire_connection::{PWEvent, PWMsg, PWThread};
 
-mod wayland_idle_inhibitor;
-use wayland_idle_inhibitor::WaylandIdleInhibitor;
+mod idle_inhibitor;
+use idle_inhibitor::{
+    dbus::DbusIdleInhibitor, dry::DryRunIdleInhibitor, wayland::WaylandIdleInhibitor, IdleInhibitor,
+};
 
 mod settings;
 use settings::Settings;
@@ -79,10 +81,19 @@ fn main() {
         settings.get_sink_whitelist().to_vec(),
         settings.get_node_blacklist().to_vec(),
     );
-    let mut wayland_idle_inhibitor = match WaylandIdleInhibitor::new() {
-        Ok(wayland_idle_inhibitor) => wayland_idle_inhibitor,
-        Err(error) => panic!("{}", error),
+
+    let mut idle_inhibitor: Box<dyn IdleInhibitor> = match settings.get_idle_inhibitor() {
+        settings::IdleInhibitor::DBus => match DbusIdleInhibitor::new() {
+            Ok(dbus_idle_inhibitor) => Box::new(dbus_idle_inhibitor),
+            Err(error) => panic!("{}", error),
+        },
+        settings::IdleInhibitor::Wayland => match WaylandIdleInhibitor::new() {
+            Ok(wayland_idle_inhibitor) => Box::new(wayland_idle_inhibitor),
+            Err(error) => panic!("{}", error),
+        },
+        settings::IdleInhibitor::DryRun => Box::<DryRunIdleInhibitor>::default(),
     };
+
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(settings.get_media_minimum_duration(), event_queue_sender);
 
@@ -101,11 +112,13 @@ fn main() {
             Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                 match inhibit_idle_state_event {
                     InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                        if let Err(error) =
-                            wayland_idle_inhibitor.set_inhibit_idle(inhibit_idle_state)
-                        {
+                        if let Err(error) = if inhibit_idle_state {
+                            idle_inhibitor.inhibit()
+                        } else {
+                            idle_inhibitor.uninhibit()
+                        } {
                             panic!("{}", error);
-                        };
+                        }
                     }
                 }
             }
