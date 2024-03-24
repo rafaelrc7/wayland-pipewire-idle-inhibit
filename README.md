@@ -39,6 +39,7 @@ or any compositor/DE that offers the `org.freedesktop.ScreenSaver` service.
 - [AUR](#aur)
 - [Cargo](#cargo-1)
 - [Nix Flake](#nix-flake-recommended)
+- [Nixpkgs](#nixpkgs)
 
 ## Usage
 
@@ -115,6 +116,11 @@ systemctl --user enable wayland-pipewire-idle-inhibit.service --now
 ```
 
 See [Running](#running) for further instructions on how to run the program.
+
+### Nixpkgs
+
+This package is available in the nixpkgs repo as
+`wayland-pipewire-idle-inhibit`.
 
 ### Nix Flake (recommended)
 
