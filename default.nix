@@ -1,6 +1,4 @@
-{ clang
-, lib
-, libclang
+{ lib
 , pipewire
 , pkg-config
 , rustPlatform
@@ -15,8 +13,8 @@ in rustPlatform.buildRustPackage rec {
   src = lib.cleanSource ./.;
 
   nativeBuildInputs = [
-    clang
     pkg-config
+    rustPlatform.bindgenHook
   ];
 
   buildInputs = [
@@ -24,7 +22,5 @@ in rustPlatform.buildRustPackage rec {
     wayland
     wayland-protocols
   ];
-
-  LIBCLANG_PATH = "${libclang.lib}/lib";
 }
 
