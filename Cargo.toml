@@ -1,6 +1,6 @@
 [package]
 name = "wayland-pipewire-idle-inhibit"
-version = "0.5.0"
+version = "0.5.1"
 authors = ["Rafael Carvalho <contact@rafaelrc.com>"]
 edition = "2021"
 license = "GPL-3.0-only"
@@ -14,6 +14,8 @@ categories = ["multimedia"]
 
 [dependencies]
 pipewire = "0.7.2"
+libspa = "0.7.2"
+libspa-sys = "0.7.2"
 log = { version = "0.4", features = ["serde"] }
 env_logger = "0.10"
 timer = "0.2"
