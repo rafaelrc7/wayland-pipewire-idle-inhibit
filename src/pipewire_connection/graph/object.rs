@@ -21,7 +21,7 @@ use pipewire::{
     node::{Node, NodeListener},
     port::{Port, PortListener},
     proxy::{Listener, ProxyT},
-    spa::Direction,
+    spa::utils::Direction,
 };
 
 /// Type used by the [pipewire] crate API to represent object ids.

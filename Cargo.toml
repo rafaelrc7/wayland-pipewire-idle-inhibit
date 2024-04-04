@@ -13,9 +13,7 @@ categories = ["multimedia"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pipewire = "0.7.2"
-libspa = "0.7.2"
-libspa-sys = "0.7.2"
+pipewire = "0.8"
 log = { version = "0.4", features = ["serde"] }
 env_logger = "0.10"
 timer = "0.2"

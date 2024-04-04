@@ -29,15 +29,15 @@ use std::{
 };
 
 use pipewire::{
+    context::Context,
     keys,
-    link::{Link, LinkChangeMask, LinkInfo, LinkListener, LinkState},
-    node::{Node, NodeInfo, NodeListener},
-    port::{Port, PortInfo, PortListener},
-    prelude::ReadableDict,
+    link::{Link, LinkChangeMask, LinkInfoRef, LinkListener, LinkState},
+    main_loop::MainLoop,
+    node::{Node, NodeInfoRef, NodeListener},
+    port::{Port, PortInfoRef, PortListener},
     registry::{GlobalObject, Registry},
-    spa::{Direction, ForeignDict},
+    spa::utils::{dict::DictRef, Direction},
     types::ObjectType,
-    Context, MainLoop,
 };
 
 use log::debug;
@@ -118,7 +118,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
 ) {
     pipewire::init();
 
-    let mainloop = MainLoop::new().expect("Failed to create mainloop.");
+    let mainloop = MainLoop::new(None).expect("Failed to create mainloop.");
     let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
     let core = Rc::new(context.connect(None).expect("Failed to get core."));
     let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
@@ -167,7 +167,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
             .register()
     };
 
-    let _receiver = pw_event_queue.attach(&mainloop, {
+    let _receiver = pw_event_queue.attach(mainloop.as_ref(), {
         let mainloop = mainloop.clone();
 
         // Treats events sent to the MainLoop thread by the caller
@@ -191,7 +191,7 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
 ///
 /// The code also subscribes to updates to that Node.
 fn registry_global_node<Msg: From<PWEvent> + 'static>(
-    node: &GlobalObject<ForeignDict>,
+    node: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: mpsc::Sender<Msg>,
@@ -244,7 +244,7 @@ fn registry_global_node<Msg: From<PWEvent> + 'static>(
 /// Handles updates to already existent [NodeData]. If necessary, the information is updated in the
 /// object in the [PWGraph].
 fn node_info<Msg: From<PWEvent>>(
-    info: &NodeInfo,
+    info: &NodeInfoRef,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: mpsc::Sender<Msg>,
 ) {
@@ -292,7 +292,7 @@ fn direction_from_string(direction: &str) -> Option<Direction> {
 ///
 /// The code also subscribes to updates to that Port.
 fn registry_global_port<Msg: From<PWEvent> + 'static>(
-    port: &GlobalObject<ForeignDict>,
+    port: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: mpsc::Sender<Msg>,
@@ -343,7 +343,7 @@ fn registry_global_port<Msg: From<PWEvent> + 'static>(
 /// Handles updates to already existent [PortData]. If necessary, the information is updated in the
 /// object in the [PWGraph].
 fn port_info<Msg: From<PWEvent>>(
-    info: &PortInfo,
+    info: &PortInfoRef,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: mpsc::Sender<Msg>,
 ) {
@@ -377,7 +377,7 @@ fn port_info<Msg: From<PWEvent>>(
 ///
 /// The code also subscribes to updates to that Port.
 fn registry_global_link<Msg: From<PWEvent> + 'static>(
-    link: &GlobalObject<ForeignDict>,
+    link: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: mpsc::Sender<Msg>,
@@ -431,7 +431,7 @@ fn registry_global_link<Msg: From<PWEvent> + 'static>(
 /// This event is specially important, as the state of the links, stored in the [LinkData::active]
 /// field, is the main information used to search for active clients.
 fn link_info<Msg: From<PWEvent>>(
-    info: &LinkInfo,
+    info: &LinkInfoRef,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: mpsc::Sender<Msg>,
 ) {

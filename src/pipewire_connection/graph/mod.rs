@@ -20,7 +20,7 @@
 use std::collections::{HashMap, HashSet};
 
 use log::{debug, trace, warn};
-use pipewire::spa::Direction;
+use pipewire::spa::utils::Direction;
 
 pub mod filter;
 use filter::{Filter, NodeFilter, SinkFilter};
