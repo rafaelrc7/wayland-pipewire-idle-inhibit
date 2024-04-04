@@ -60,9 +60,13 @@ fn main() {
         Err(error) => panic!("{}", error),
     };
 
-    env_logger::Builder::new()
-        .filter_level(settings.get_verbosity())
-        .init();
+    simplelog::TermLogger::init(
+        settings.get_verbosity(),
+        simplelog::Config::default(),
+        simplelog::TerminalMode::Mixed,
+        simplelog::ColorChoice::Auto,
+    )
+    .unwrap();
 
     let (event_queue_sender, event_queue) = mpsc::channel::<Msg>();
 

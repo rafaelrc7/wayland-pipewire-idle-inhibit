@@ -15,7 +15,7 @@ categories = ["multimedia"]
 [dependencies]
 pipewire = "0.8"
 log = { version = "0.4", features = ["serde"] }
-env_logger = "0.10"
+simplelog = "0.12"
 timer = "0.2"
 chrono = "0.4"
 signal-hook = "0.3"
