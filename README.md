@@ -133,6 +133,14 @@ wayland-pipewire-idle-inhibit = {
 };
 ```
 
+> [!WARNING]
+> This flake depends on nixos-unstable, if you are using a stable nixpkgs
+> version (23.11), either delete the `inputs.nixpkgs.follows` line, or set it
+> to follow a nixpkgs-unstable input, otherwise the package will not build. You
+> may need to run `$ nix flake update wayland-pipewire-idle-inhibit` after
+> removing the line if the build still fails. (see
+> [#7](https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit/issues/7))
+
 From this point you have many options:
 
 #### Using the Home Manager module (recommended)
