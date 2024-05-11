@@ -9,6 +9,7 @@ pkgs.mkShell {
     pkg-config
     rustc
     rustfmt
+    rust-analyzer
     valgrind
     wayland
     wayland-protocols
