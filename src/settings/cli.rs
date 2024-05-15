@@ -37,7 +37,7 @@ pub struct Args {
         long,
         value_name = "SECONDS",
         allow_negative_numbers = false,
-        help = format!("Minimum media duration to inhibit idle [default: {}]", super::defalt_media_minimum_duration())
+        help = format!("Minimum media duration to inhibit idle [default: {}]", super::default_media_minimum_duration())
     )]
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     media_minimum_duration: Option<i64>,

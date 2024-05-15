@@ -36,7 +36,7 @@ use cli::Args;
 #[serde_as]
 #[derive(Deserialize)]
 pub struct Settings {
-    #[serde(default = "defalt_media_minimum_duration")]
+    #[serde(default = "default_media_minimum_duration")]
     media_minimum_duration: i64,
 
     #[serde(default = "default_idle_inhibitor")]
@@ -106,7 +106,7 @@ impl Settings {
 }
 
 /// Default media minimum duration, set to 5 seconds
-const fn defalt_media_minimum_duration() -> i64 {
+const fn default_media_minimum_duration() -> i64 {
     5
 }
 
