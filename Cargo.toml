@@ -1,6 +1,6 @@
 [package]
 name = "wayland-pipewire-idle-inhibit"
-version = "0.5.1"
+version = "0.5.2"
 authors = ["Rafael Carvalho <contact@rafaelrc.com>"]
 edition = "2021"
 license = "GPL-3.0-only"
