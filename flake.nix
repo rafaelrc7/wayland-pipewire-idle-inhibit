@@ -17,8 +17,12 @@
         inputs.flake-parts.flakeModules.easyOverlay
       ];
       flake = {
+        nixosModules = rec {
+          wayland-pipewire-idle-inhibit = import ./modules/nixos.nix;
+          default = wayland-pipewire-idle-inhibit;
+        };
         homeModules = rec {
-          wayland-pipewire-idle-inhibit = import ./module.nix;
+          wayland-pipewire-idle-inhibit = import ./modules/home-manager.nix;
           default = wayland-pipewire-idle-inhibit;
         };
       };

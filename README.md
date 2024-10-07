@@ -143,15 +143,21 @@ wayland-pipewire-idle-inhibit = {
 
 From this point you have many options:
 
-#### Using the Home Manager module (recommended)
+#### Using the module (recommended)
 
-Add the following to your home-manager imports:
+Add the following to your imports:
+
+```nix
+inputs.wayland-pipewire-idle-inhibit.nixosModules.default
+```
+
+Or alternatively, to your home-manager imports:
 
 ```nix
 inputs.wayland-pipewire-idle-inhibit.homeModules.default
 ```
 
-And then you may use the option to set it up, for example:
+And then you may use the options to set it up, for example:
 
 ```nix
 services.wayland-pipewire-idle-inhibit = {
