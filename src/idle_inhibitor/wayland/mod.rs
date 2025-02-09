@@ -141,7 +141,9 @@ impl Dispatch<WlRegistry, ()> for AppData {
                 if interface == WlCompositor::interface().name && state.compositor.is_none() {
                     debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "Adding Compositor with name {name} and version {version}");
                     let compositor: WlCompositor = proxy.bind(name, version, qhandle, ());
-                    state.surface = Some(compositor.create_surface(qhandle, ()));
+                    let surface = compositor.create_surface(qhandle, ());
+                    surface.commit();
+                    state.surface = Some(surface);
                     state.compositor = Some((compositor, name));
                 } else if interface == ZwpIdleInhibitManagerV1::interface().name
                     && state.idle_manager.is_none()
