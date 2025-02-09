@@ -1,22 +1,27 @@
 {
   pkgs ? import <nixpkgs> { },
+  devTools ? true,
+  inputsFrom ? [
+    pkgs.callPackage
+    ./default.nix
+    { }
+  ],
   ...
 }:
 pkgs.mkShell {
-  packages = with pkgs; [
-    cargo
-    clang
-    clippy
-    gdb
-    pipewire
-    pkg-config
-    rustc
-    rustfmt
-    rust-analyzer
-    valgrind
-    wayland
-    wayland-protocols
-  ];
-
-  LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+  inherit inputsFrom;
+  strictDeps = true;
+  nativeBuildInputs =
+    with pkgs;
+    [
+      cargo
+      rustc
+    ]
+    ++ pkgs.lib.optional devTools [
+      clippy
+      gdb
+      rustfmt
+      rust-analyzer
+      valgrind
+    ];
 }

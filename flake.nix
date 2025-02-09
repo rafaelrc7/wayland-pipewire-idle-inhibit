@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    systems.url = "github:nix-systems/default-linux";
     flake-parts.url = "github:hercules-ci/flake-parts";
     treefmt-nix = {
       url = "github:numtide/treefmt-nix";
@@ -11,8 +12,9 @@
   };
 
   outputs =
-    inputs@{ flake-parts, ... }:
-    flake-parts.lib.mkFlake { inherit inputs; } {
+    inputs:
+    inputs.flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = import inputs.systems;
       imports = [
         inputs.treefmt-nix.flakeModule
         inputs.flake-parts.flakeModules.easyOverlay
@@ -27,17 +29,21 @@
           default = wayland-pipewire-idle-inhibit;
         };
       };
-      systems = [ "x86_64-linux" ];
       perSystem =
         { config, pkgs, ... }:
         {
-          devShells.default = import ./shell.nix { inherit pkgs; };
-
-          packages.wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
-          packages.default = config.packages.wayland-pipewire-idle-inhibit;
+          packages = rec {
+            default = wayland-pipewire-idle-inhibit;
+            wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
+          };
 
           overlayAttrs = {
             inherit (config.packages) wayland-pipewire-idle-inhibit;
+          };
+
+          devShells.default = import ./shell.nix {
+            inherit pkgs;
+            inputsFrom = [ config.packages.wayland-pipewire-idle-inhibit ];
           };
 
           treefmt.config = {
