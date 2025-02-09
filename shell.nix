@@ -1,4 +1,7 @@
-{ pkgs ? import <nixpkgs> { }, ... }:
+{
+  pkgs ? import <nixpkgs> { },
+  ...
+}:
 pkgs.mkShell {
   packages = with pkgs; [
     cargo
@@ -17,4 +20,3 @@ pkgs.mkShell {
 
   LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
 }
-

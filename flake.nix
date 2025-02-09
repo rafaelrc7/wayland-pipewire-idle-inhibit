@@ -10,7 +10,8 @@
     };
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs =
+    inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       imports = [
         inputs.treefmt-nix.flakeModule
@@ -27,26 +28,27 @@
         };
       };
       systems = [ "x86_64-linux" ];
-      perSystem = { config, pkgs, ... }: {
-        devShells.default = import ./shell.nix { inherit pkgs; };
+      perSystem =
+        { config, pkgs, ... }:
+        {
+          devShells.default = import ./shell.nix { inherit pkgs; };
 
-        packages.wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
-        packages.default = config.packages.wayland-pipewire-idle-inhibit;
+          packages.wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
+          packages.default = config.packages.wayland-pipewire-idle-inhibit;
 
-        overlayAttrs = {
-          inherit (config.packages) wayland-pipewire-idle-inhibit;
-        };
+          overlayAttrs = {
+            inherit (config.packages) wayland-pipewire-idle-inhibit;
+          };
 
-        treefmt.config = {
-          projectRootFile = "flake.nix";
-          programs = {
-            rustfmt.enable = true;
-            nixpkgs-fmt.enable = true;
-            taplo.enable = true;
-            prettier.enable = true;
+          treefmt.config = {
+            projectRootFile = "flake.nix";
+            programs = {
+              nixfmt.enable = true;
+              prettier.enable = true;
+              rustfmt.enable = true;
+              taplo.enable = true;
+            };
           };
         };
-      };
     };
 }
-
