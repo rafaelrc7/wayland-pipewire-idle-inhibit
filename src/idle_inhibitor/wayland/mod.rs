@@ -17,13 +17,18 @@
 //! Connection to the Wayland compositor and manages the Wayland Idle Inhibitor.
 
 use std::error::Error;
+use std::os::fd::AsFd;
+use std::io::Write;
 
 use wayland_client::{
     protocol::{
+        wl_buffer::WlBuffer,
         wl_compositor::WlCompositor,
         wl_display::WlDisplay,
         wl_registry::{self, WlRegistry},
         wl_surface::WlSurface,
+        wl_shm::{WlShm, Format},
+        wl_shm_pool::WlShmPool,
     },
     Connection, Dispatch, DispatchError, EventQueue, Proxy, QueueHandle,
 };
@@ -32,7 +37,14 @@ use wayland_protocols::wp::idle_inhibit::zv1::client::{
     zwp_idle_inhibit_manager_v1::ZwpIdleInhibitManagerV1, zwp_idle_inhibitor_v1::ZwpIdleInhibitorV1,
 };
 
+use wayland_protocols_wlr::layer_shell::v1::client::{
+    zwlr_layer_shell_v1::{Layer, ZwlrLayerShellV1},
+    zwlr_layer_surface_v1::{self, ZwlrLayerSurfaceV1},
+};
+
 use log::{debug, info, warn};
+
+use tempfile;
 
 use super::IdleInhibitor;
 
@@ -74,8 +86,61 @@ impl WaylandIdleInhibitor {
             _registry: registry,
             data: AppData::default(),
         };
-        obj.roundtrip()?;
+        obj.initialize()?;
         Ok(obj)
+    }
+
+    fn init_buffer(&mut self) {
+        let mut file = tempfile::tempfile().unwrap();
+        let shm = self.data.shm.as_ref().expect("WlShm global not initialized");
+        let width = 1;
+        let height = 1;
+        let stride = width * 4;
+        let pool_size = height * stride * 2;
+        let pool = shm.create_pool(file.as_fd(), pool_size, &self.qhandle, ());
+        let buffer = pool.create_buffer(
+            0,
+            width,
+            height,
+            stride,
+            Format::Argb8888,
+            &self.qhandle,
+            (),
+        );
+        let _ = file.write(b"\x00\x00\x00\x00\x00\x00\x00\x00");
+        self.data.buffer = Some(buffer);
+    }
+
+    fn init_layer_surface(&mut self) {
+        let layer_shell = self.data.layer_shell.as_ref().expect("ZwlrLayerShellV1 global not initialized");
+        let surface = self.data.surface.as_ref().expect("WlSurface not created");
+        let layer_surface = layer_shell.get_layer_surface(
+            surface,
+            None,
+            Layer::Background,
+            "wayland-pipewire-idle-inhibit".to_string(),
+            &self.qhandle,
+            (),
+        );
+        layer_surface.set_anchor(zwlr_layer_surface_v1::Anchor::all());
+        surface.commit();
+        self.data.layer_surface = Some(layer_surface);
+    }
+
+    fn initialize(&mut self) -> Result<(), Box<dyn Error>> {
+        self.roundtrip()?; // init globals
+
+        self.init_buffer();
+        self.init_layer_surface();
+        self.roundtrip()?; // make sure layer_surface receives the configure event
+        let surface = self.data.surface.as_ref().expect("WlSurface is not initialized");
+        let buffer = self.data.buffer.as_ref().expect("WlBuffer is not initialized");
+        
+        surface.attach(Some(buffer), 0, 0);
+        surface.commit();
+        self.roundtrip()?;
+
+        Ok(())
     }
 
     /// Fires enqueued Wayland events to be treated
@@ -118,6 +183,10 @@ impl WaylandIdleInhibitor {
 struct AppData {
     compositor: Option<(WlCompositor, u32)>,
     surface: Option<WlSurface>,
+    shm: Option<WlShm>,
+    buffer: Option<WlBuffer>,
+    layer_shell: Option<ZwlrLayerShellV1>,
+    layer_surface: Option<ZwlrLayerSurfaceV1>,
     idle_manager: Option<(ZwpIdleInhibitManagerV1, u32)>,
     _idle_inhibitor: Option<ZwpIdleInhibitorV1>,
 }
@@ -143,6 +212,12 @@ impl Dispatch<WlRegistry, ()> for AppData {
                     let compositor: WlCompositor = proxy.bind(name, version, qhandle, ());
                     state.surface = Some(compositor.create_surface(qhandle, ()));
                     state.compositor = Some((compositor, name));
+                } else if interface == WlShm::interface().name {
+                    state.shm = Some(proxy.bind(name, version, qhandle, ()));
+                } else if interface == ZwlrLayerShellV1::interface().name
+                    && state.layer_shell.is_none()
+                {
+                    state.layer_shell = Some(proxy.bind(name, version, qhandle, ()));
                 } else if interface == ZwpIdleInhibitManagerV1::interface().name
                     && state.idle_manager.is_none()
                 {
@@ -190,6 +265,7 @@ impl Dispatch<WlSurface, ()> for AppData {
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
     ) {
+        // no-op
     }
 }
 
@@ -215,4 +291,68 @@ impl Dispatch<ZwpIdleInhibitorV1, ()> for AppData {
         _qhandle: &QueueHandle<Self>,
     ) {
     } // This interface has no events.
+}
+
+impl Dispatch<WlShm, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlShm,
+        _event: <WlShm as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+    } // This interface has no events.
+}
+
+impl Dispatch<WlShmPool, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlShmPool,
+        _event: <WlShmPool as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+    } // This interface has no events.
+}
+
+impl Dispatch<WlBuffer, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &WlBuffer,
+        _event: <WlBuffer as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        // no-op
+    }
+}
+
+impl Dispatch<ZwlrLayerShellV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &ZwlrLayerShellV1,
+        _event: <ZwlrLayerShellV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+    } // This interface has no events.
+}
+
+impl Dispatch<ZwlrLayerSurfaceV1, ()> for AppData {
+    fn event(
+        _state: &mut Self,
+        _proxy: &ZwlrLayerSurfaceV1,
+        _event: <ZwlrLayerSurfaceV1 as Proxy>::Event,
+        _data: &(),
+        _conn: &Connection,
+        _qhandle: &QueueHandle<Self>,
+    ) {
+        if let zwlr_layer_surface_v1::Event::Configure { serial, .. } = _event {
+            _proxy.ack_configure(serial);
+        }
+    }
 }
