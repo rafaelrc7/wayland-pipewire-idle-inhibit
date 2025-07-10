@@ -21,6 +21,7 @@ use std::io::Write;
 use std::os::fd::AsFd;
 
 use wayland_client::{
+    delegate_noop,
     protocol::{
         wl_buffer::WlBuffer,
         wl_compositor::WlCompositor,
@@ -260,104 +261,6 @@ impl Dispatch<WlRegistry, ()> for AppData {
     }
 }
 
-impl Dispatch<WlCompositor, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &WlCompositor,
-        _event: <WlCompositor as Proxy>::Event,
-        _data: &(),
-        _conn: &wayland_client::Connection,
-        _qhandle: &wayland_client::QueueHandle<Self>,
-    ) {
-    } // This interface has no events.
-}
-
-impl Dispatch<WlSurface, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &WlSurface,
-        _event: <WlSurface as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-        // no-op
-    }
-}
-
-impl Dispatch<ZwpIdleInhibitManagerV1, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &ZwpIdleInhibitManagerV1,
-        _event: <ZwpIdleInhibitManagerV1 as Proxy>::Event,
-        _data: &(),
-        _conn: &wayland_client::Connection,
-        _qhandle: &wayland_client::QueueHandle<Self>,
-    ) {
-    } // This interface has no events.
-}
-
-impl Dispatch<ZwpIdleInhibitorV1, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &ZwpIdleInhibitorV1,
-        _event: <ZwpIdleInhibitorV1 as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-    } // This interface has no events.
-}
-
-impl Dispatch<WlShm, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &WlShm,
-        _event: <WlShm as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-    } // This interface has no events.
-}
-
-impl Dispatch<WlShmPool, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &WlShmPool,
-        _event: <WlShmPool as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-    } // This interface has no events.
-}
-
-impl Dispatch<WlBuffer, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &WlBuffer,
-        _event: <WlBuffer as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-        // no-op
-    }
-}
-
-impl Dispatch<ZwlrLayerShellV1, ()> for AppData {
-    fn event(
-        _state: &mut Self,
-        _proxy: &ZwlrLayerShellV1,
-        _event: <ZwlrLayerShellV1 as Proxy>::Event,
-        _data: &(),
-        _conn: &Connection,
-        _qhandle: &QueueHandle<Self>,
-    ) {
-    } // This interface has no events.
-}
-
 impl Dispatch<ZwlrLayerSurfaceV1, ()> for AppData {
     fn event(
         _state: &mut Self,
@@ -372,3 +275,15 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for AppData {
         }
     }
 }
+
+// These interfaces have no events.
+delegate_noop!(AppData: WlCompositor);
+delegate_noop!(AppData: ZwpIdleInhibitManagerV1);
+delegate_noop!(AppData: ZwpIdleInhibitorV1);
+delegate_noop!(AppData: WlShmPool);
+delegate_noop!(AppData: ZwlrLayerShellV1);
+
+// Ignore events from these object types.
+delegate_noop!(AppData: ignore WlSurface);
+delegate_noop!(AppData: ignore WlBuffer);
+delegate_noop!(AppData: ignore WlShm);
