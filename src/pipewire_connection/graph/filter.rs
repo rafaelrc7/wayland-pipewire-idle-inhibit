@@ -32,6 +32,7 @@ pub trait Filter<T> {
     /// This function will return false on the first failed filter and true if all checks succed.
     ///
     /// When an empty slice of filters is passed, it returns true.
+    #[allow(dead_code)]
     fn matches_all(filters: &[Self], data: &T) -> bool
     where
         Self: Sized,
@@ -65,7 +66,7 @@ pub trait Filter<T> {
 fn matches_property(filter: &Option<Regex>, property: Option<&str>) -> bool {
     filter
         .as_ref()
-        .map_or(true, |f| property.map_or(false, |p| f.is_match(p)))
+        .map_or(true, |f| property.is_some_and(|p| f.is_match(p)))
 }
 
 /// Represents a [Filter] over a Sink. A Sink is a special case of a Node, and thus filters over

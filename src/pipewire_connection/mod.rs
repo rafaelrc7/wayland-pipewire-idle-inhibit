@@ -232,7 +232,7 @@ fn registry_global_node<Msg: From<PWEvent> + 'static>(
         id,
         PWObject::Node {
             data,
-            proxy: Proxy { proxy, listener },
+            _proxy: Proxy { _proxy: proxy, _listener: listener },
         },
     );
 
@@ -331,7 +331,7 @@ fn registry_global_port<Msg: From<PWEvent> + 'static>(
         id,
         PWObject::Port {
             data,
-            proxy: Proxy { proxy, listener },
+            _proxy: Proxy { _proxy: proxy, _listener: listener },
         },
     );
 
@@ -416,7 +416,7 @@ fn registry_global_link<Msg: From<PWEvent> + 'static>(
         id,
         PWObject::Link {
             data,
-            proxy: Proxy { proxy, listener },
+            _proxy: Proxy { _proxy: proxy, _listener: listener },
         },
     );
 

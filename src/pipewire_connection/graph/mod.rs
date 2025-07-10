@@ -468,7 +468,7 @@ impl PWGraph {
                     continue;
                 };
 
-                links_to_node.insert((&link, &output_port));
+                links_to_node.insert((link, output_port));
             }
         }
 

@@ -30,8 +30,8 @@ pub type Id = u32;
 /// Generic struct that joins a [pipewire] [ProxyT], a reference to a global object, and its
 /// respective [Listener].
 pub struct Proxy<TProxy: ProxyT, TListener: Listener> {
-    pub proxy: TProxy,
-    pub listener: TListener,
+    pub _proxy: TProxy,
+    pub _listener: TListener,
 }
 
 /// Struct representing relevant data of a [pipewire::node::Node] used by the app.
@@ -209,14 +209,14 @@ pub enum PWObjectData {
 pub enum PWObject {
     Node {
         data: NodeData,
-        proxy: Proxy<Node, NodeListener>,
+        _proxy: Proxy<Node, NodeListener>,
     },
     Port {
         data: PortData,
-        proxy: Proxy<Port, PortListener>,
+        _proxy: Proxy<Port, PortListener>,
     },
     Link {
         data: LinkData,
-        proxy: Proxy<Link, LinkListener>,
+        _proxy: Proxy<Link, LinkListener>,
     },
 }
