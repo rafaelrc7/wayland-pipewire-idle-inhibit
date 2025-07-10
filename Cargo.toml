@@ -13,21 +13,21 @@ categories = ["multimedia"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pipewire = "0.8"
-log = { version = "0.4", features = ["serde"] }
-simplelog = "0.12"
-timer = "0.2"
 chrono = "0.4"
-signal-hook = "0.3"
-wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
-wayland-client = "0.31"
-zbus = "4.1"
 clap = { version = "4.5", features = ["derive", "cargo", "string"] }
-regex = "1.10"
-xdg = "2.5"
 figment = { version = "0.10", features = ["toml"] }
-serde = { version = "1.0", features = ["derive"] }
+log = { version = "0.4", features = ["serde"] }
+pipewire = "0.8"
+regex = "1.10"
 serde_regex = "1.1"
+serde = { version = "1.0", features = ["derive"] }
 serde_with = "3.7"
-wayland-protocols-wlr = { version = "0.3.8", features = ["client"] }
+signal-hook = "0.3"
+simplelog = "0.12"
 tempfile = "3.20.0"
+timer = "0.2"
+wayland-client = "0.31"
+wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
+wayland-protocols-wlr = { version = "0.3.8", features = ["client"] }
+xdg = "2.5"
+zbus = "4.1"
