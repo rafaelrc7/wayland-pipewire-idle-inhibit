@@ -17,8 +17,8 @@
 //! Connection to the Wayland compositor and manages the Wayland Idle Inhibitor.
 
 use std::error::Error;
-use std::os::fd::AsFd;
 use std::io::Write;
+use std::os::fd::AsFd;
 
 use wayland_client::{
     protocol::{
@@ -26,9 +26,9 @@ use wayland_client::{
         wl_compositor::WlCompositor,
         wl_display::WlDisplay,
         wl_registry::{self, WlRegistry},
-        wl_surface::WlSurface,
-        wl_shm::{WlShm, Format},
+        wl_shm::{Format, WlShm},
         wl_shm_pool::WlShmPool,
+        wl_surface::WlSurface,
     },
     Connection, Dispatch, DispatchError, EventQueue, Proxy, QueueHandle,
 };
@@ -92,7 +92,11 @@ impl WaylandIdleInhibitor {
 
     fn init_buffer(&mut self) {
         let mut file = tempfile::tempfile().unwrap();
-        let shm = self.data.shm.as_ref().expect("WlShm global not initialized");
+        let shm = self
+            .data
+            .shm
+            .as_ref()
+            .expect("WlShm global not initialized");
         let width = 1;
         let height = 1;
         let stride = width * 4;
@@ -112,7 +116,11 @@ impl WaylandIdleInhibitor {
     }
 
     fn init_layer_surface(&mut self) {
-        let layer_shell = self.data.layer_shell.as_ref().expect("ZwlrLayerShellV1 global not initialized");
+        let layer_shell = self
+            .data
+            .layer_shell
+            .as_ref()
+            .expect("ZwlrLayerShellV1 global not initialized");
         let surface = self.data.surface.as_ref().expect("WlSurface not created");
         let layer_surface = layer_shell.get_layer_surface(
             surface,
@@ -133,8 +141,16 @@ impl WaylandIdleInhibitor {
         self.init_buffer();
         self.init_layer_surface();
         self.roundtrip()?; // make sure layer_surface receives the configure event
-        let surface = self.data.surface.as_ref().expect("WlSurface is not initialized");
-        let buffer = self.data.buffer.as_ref().expect("WlBuffer is not initialized");
+        let surface = self
+            .data
+            .surface
+            .as_ref()
+            .expect("WlSurface is not initialized");
+        let buffer = self
+            .data
+            .buffer
+            .as_ref()
+            .expect("WlBuffer is not initialized");
 
         surface.attach(Some(buffer), 0, 0);
         surface.commit();
