@@ -27,9 +27,9 @@ Feedback and contributions are welcome!
 
 ## Tested on
 
-- Sway: works fine with the default wayland idle inhibitor
-- Plasma: while in theory it implements the `idle-inhibit-unstable-v1` protocol
-  it seems to be broken. Works fine using the dbus idle inhibitor.
+- Sway: Works
+- Hyprland: Works
+- KDE Plasma: Works
 
 Should work fine with any compositor that implements `idle-inhibit-unstable-v1`
 or any compositor/DE that offers the `org.freedesktop.ScreenSaver` service.
