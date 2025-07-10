@@ -135,7 +135,7 @@ impl WaylandIdleInhibitor {
         self.roundtrip()?; // make sure layer_surface receives the configure event
         let surface = self.data.surface.as_ref().expect("WlSurface is not initialized");
         let buffer = self.data.buffer.as_ref().expect("WlBuffer is not initialized");
-        
+
         surface.attach(Some(buffer), 0, 0);
         surface.commit();
         self.roundtrip()?;
@@ -157,19 +157,19 @@ impl WaylandIdleInhibitor {
         };
 
         if inhibit_idle {
-            if data._idle_inhibitor.is_none() {
+            if data.idle_inhibitor.is_none() {
                 let Some(surface) = &data.surface else {
                     warn!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Tried to change idle inhibitor status without loaded WlSurface!");
                     return Ok(());
                 };
-                self.data._idle_inhibitor =
+                self.data.idle_inhibitor =
                     Some(idle_manager.create_inhibitor(surface, &self.qhandle, ()));
                 self.roundtrip()?;
                 info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was ENABLED");
             }
-        } else if let Some(indle_inhibitor) = &self.data._idle_inhibitor {
+        } else if let Some(indle_inhibitor) = &self.data.idle_inhibitor {
             indle_inhibitor.destroy();
-            self.data._idle_inhibitor = None;
+            self.data.idle_inhibitor = None;
             self.roundtrip()?;
             info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was DISABLED");
         }
@@ -188,7 +188,7 @@ struct AppData {
     layer_shell: Option<ZwlrLayerShellV1>,
     layer_surface: Option<ZwlrLayerSurfaceV1>,
     idle_manager: Option<(ZwpIdleInhibitManagerV1, u32)>,
-    _idle_inhibitor: Option<ZwpIdleInhibitorV1>,
+    idle_inhibitor: Option<ZwpIdleInhibitorV1>,
 }
 
 /// Subscribes to the [WlRegistry] events, mainly to treat added and removed objects
@@ -345,14 +345,14 @@ impl Dispatch<ZwlrLayerShellV1, ()> for AppData {
 impl Dispatch<ZwlrLayerSurfaceV1, ()> for AppData {
     fn event(
         _state: &mut Self,
-        _proxy: &ZwlrLayerSurfaceV1,
+        proxy: &ZwlrLayerSurfaceV1,
         _event: <ZwlrLayerSurfaceV1 as Proxy>::Event,
         _data: &(),
         _conn: &Connection,
         _qhandle: &QueueHandle<Self>,
     ) {
         if let zwlr_layer_surface_v1::Event::Configure { serial, .. } = _event {
-            _proxy.ack_configure(serial);
+            proxy.ack_configure(serial);
         }
     }
 }
