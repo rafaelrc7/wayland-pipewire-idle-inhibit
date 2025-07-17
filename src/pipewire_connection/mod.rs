@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2024  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2023-2025  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 3 as published by
@@ -11,7 +11,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//
+
 // SPDX-License-Identifier: GPL-3.0-only
 
 //! Manages the connection to the PipeWire server, listening to events and building a graph of
@@ -24,7 +24,6 @@ use std::{
     cell::RefCell,
     marker::Send,
     rc::Rc,
-    sync::mpsc,
     thread::{self, JoinHandle},
 };
 
@@ -50,6 +49,8 @@ use graph::{
 
 use graph::filter::{NodeFilter, SinkFilter};
 
+use crate::message_queue::MessageQueueSender;
+
 /// Events that can be sent to the PipeWire thread
 #[derive(Debug)]
 pub enum PWMsg {
@@ -58,7 +59,7 @@ pub enum PWMsg {
 }
 
 /// Events that are fired by the PipeWire thread and must be treated by the caller
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum PWEvent {
     GraphUpdated,
     InhibitIdleState(bool),
@@ -73,8 +74,8 @@ pub struct PWThread {
 impl PWThread {
     /// Constructor that creates the channel used by the PipeWire [MainLoop] and launches it in
     /// another thread
-    pub fn new<Msg: From<PWEvent> + Send + 'static>(
-        pw_event_listener: mpsc::Sender<Msg>,
+    pub fn new<Msg: From<PWEvent> + Clone + Send + 'static>(
+        pw_event_listener: MessageQueueSender<Msg>,
         sink_whitelist: Vec<SinkFilter>,
         node_blacklist: Vec<NodeFilter>,
     ) -> Self {
@@ -110,8 +111,8 @@ impl PWThread {
 
 /// PipeWire thread function. Responsible to create PipeWire objects, subscribe to events and run
 /// the [MainLoop]
-fn pw_thread<Msg: From<PWEvent> + 'static>(
-    pw_event_listener: mpsc::Sender<Msg>,
+fn pw_thread<Msg: From<PWEvent> + Clone + 'static>(
+    pw_event_listener: MessageQueueSender<Msg>,
     pw_event_queue: pipewire::channel::Receiver<PWMsg>,
     sink_whitelist: Vec<SinkFilter>,
     node_blacklist: Vec<NodeFilter>,
@@ -190,11 +191,11 @@ fn pw_thread<Msg: From<PWEvent> + 'static>(
 /// inserted into the [PWGraph] shared object.
 ///
 /// The code also subscribes to updates to that Node.
-fn registry_global_node<Msg: From<PWEvent> + 'static>(
+fn registry_global_node<Msg: From<PWEvent> + Clone + 'static>(
     node: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     let id = node.id;
     let props = node
@@ -246,10 +247,10 @@ fn registry_global_node<Msg: From<PWEvent> + 'static>(
 
 /// Handles updates to already existent [NodeData]. If necessary, the information is updated in the
 /// object in the [PWGraph].
-fn node_info<Msg: From<PWEvent>>(
+fn node_info<Msg: From<PWEvent> + Clone>(
     info: &NodeInfoRef,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     let id = info.id();
     debug!("Event Node Info id:{id}");
@@ -294,11 +295,11 @@ fn direction_from_string(direction: &str) -> Option<Direction> {
 /// inserted into the [PWGraph] shared object.
 ///
 /// The code also subscribes to updates to that Port.
-fn registry_global_port<Msg: From<PWEvent> + 'static>(
+fn registry_global_port<Msg: From<PWEvent> + Clone + 'static>(
     port: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     let id = port.id;
 
@@ -348,10 +349,10 @@ fn registry_global_port<Msg: From<PWEvent> + 'static>(
 
 /// Handles updates to already existent [PortData]. If necessary, the information is updated in the
 /// object in the [PWGraph].
-fn port_info<Msg: From<PWEvent>>(
+fn port_info<Msg: From<PWEvent> + Clone>(
     info: &PortInfoRef,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     let id = info.id();
     debug!("Event Port Info id:{id}");
@@ -382,11 +383,11 @@ fn port_info<Msg: From<PWEvent>>(
 /// inserted into the [PWGraph] shared object.
 ///
 /// The code also subscribes to updates to that Port.
-fn registry_global_link<Msg: From<PWEvent> + 'static>(
+fn registry_global_link<Msg: From<PWEvent> + Clone + 'static>(
     link: &GlobalObject<&DictRef>,
     registry: Rc<Registry>,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     let id = link.id;
 
@@ -439,10 +440,10 @@ fn registry_global_link<Msg: From<PWEvent> + 'static>(
 ///
 /// This event is specially important, as the state of the links, stored in the [LinkData::active]
 /// field, is the main information used to search for active clients.
-fn link_info<Msg: From<PWEvent>>(
+fn link_info<Msg: From<PWEvent> + Clone>(
     info: &LinkInfoRef,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     let id = info.id();
     debug!("Event Link Info id:{id}");
@@ -474,10 +475,10 @@ fn link_info<Msg: From<PWEvent>>(
 }
 
 /// Handles a removed object from the [PWGraph]
-fn registry_global_remove<Msg: From<PWEvent>>(
+fn registry_global_remove<Msg: From<PWEvent> + Clone>(
     id: Id,
     graph: Rc<RefCell<PWGraph>>,
-    pw_event_listener: mpsc::Sender<Msg>,
+    pw_event_listener: MessageQueueSender<Msg>,
 ) {
     debug!("Event Registry Global Remove Object id: {id}");
     graph.borrow_mut().remove(id);

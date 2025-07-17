@@ -20,6 +20,7 @@ use std::io::Write;
 use std::os::fd::AsFd;
 use std::{error::Error, fmt::Display};
 
+use wayland_client::backend::ReadEventsGuard;
 use wayland_client::{
     delegate_noop,
     globals::{registry_queue_init, GlobalList, GlobalListContents},
@@ -102,6 +103,20 @@ impl WaylandIdleInhibitor {
         self.event_queue.roundtrip(&mut self.state)
     }
 
+    /// Get a read lock of the event queue, flushing necessary events
+    fn prepare_read(&mut self) -> Result<ReadEventsGuard, Box<dyn Error>> {
+        self.event_queue.flush()?;
+        if let Some(lock) = self.event_queue.prepare_read() {
+            Ok(lock)
+        } else {
+            self.event_queue.dispatch_pending(&mut self.state)?;
+            Ok(self
+                .event_queue
+                .prepare_read()
+                .ok_or(WaylandIdleInhibitorError::WlEventQueueUnkownErrorOnReadLock)?)
+        }
+    }
+
     /// Enables or disables Idle inhibiting using the Wayland protocol
     pub fn set_inhibit_idle(&mut self, inhibit_idle: bool) -> Result<(), Box<dyn Error>> {
         let state = &mut self.state;
@@ -139,6 +154,17 @@ impl IdleInhibitor for WaylandIdleInhibitor {
 
     fn uninhibit(&mut self) -> Result<(), Box<dyn Error>> {
         self.set_inhibit_idle(false)
+    }
+
+    fn wayland_queue_read_guard(&mut self) -> Result<Option<ReadEventsGuard>, Box<dyn Error>> {
+        self.prepare_read().map(Some)
+    }
+
+    fn wayland_dispatch_pending(&mut self) -> Result<(), Box<dyn Error>> {
+        Ok(self
+            .event_queue
+            .dispatch_pending(&mut self.state)
+            .map(|_| ())?)
     }
 }
 
@@ -306,6 +332,7 @@ delegate_noop!(State: ignore WlShm);
 enum WaylandIdleInhibitorError {
     WlrLayerSurfaceNotConfigured,
     WlSurfaceNotCreated,
+    WlEventQueueUnkownErrorOnReadLock,
 }
 
 impl Display for WaylandIdleInhibitorError {
@@ -316,6 +343,11 @@ impl Display for WaylandIdleInhibitorError {
             }
             WaylandIdleInhibitorError::WlSurfaceNotCreated => {
                 "Wayland Surface was not created!".to_string().fmt(f)
+            }
+            WaylandIdleInhibitorError::WlEventQueueUnkownErrorOnReadLock => {
+                "Unknown error when trying to get a read lock on the Wayland Event Queue"
+                    .to_string()
+                    .fmt(f)
             }
         }
     }
