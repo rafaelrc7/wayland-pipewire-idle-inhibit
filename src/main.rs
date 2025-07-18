@@ -177,8 +177,9 @@ fn main() {
             Ok(MessageQueueType::WaylandQueue) => {
                 if let Some(wayland_read_guard) = wayland_read_guard {
                     epoll.delete(wayland_read_guard.connection_fd()).unwrap();
-                    wayland_read_guard.read().unwrap();
-                    idle_inhibitor.wayland_dispatch_pending().unwrap();
+                    if wayland_read_guard.read().is_ok() {
+                        idle_inhibitor.wayland_dispatch_pending().unwrap();
+                    }
                 }
             }
 
