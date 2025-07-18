@@ -17,8 +17,8 @@
 //! Connection to the Wayland compositor and manages the Wayland Idle Inhibitor.
 
 use std::collections::HashMap;
+use std::error::Error;
 use std::os::fd::AsFd;
-use std::{error::Error, fmt::Display};
 
 use wayland_client::backend::{ObjectId, ReadEventsGuard};
 use wayland_client::protocol::wl_buffer;
@@ -128,7 +128,7 @@ impl WaylandIdleInhibitor {
             Ok(self
                 .event_queue
                 .prepare_read()
-                .ok_or(WaylandIdleInhibitorError::WlEventQueueUnkownErrorOnReadLock)?)
+                .ok_or("Unknown error when trying to get a read lock on the Wayland Event Queue")?)
         }
     }
 
@@ -502,24 +502,3 @@ delegate_noop!(WaylandState: ZwlrLayerShellV1);
 delegate_noop!(WaylandState: ignore WlSurface);
 delegate_noop!(WaylandState: ignore WlShm);
 delegate_noop!(WaylandState: ignore WlOutput);
-
-// Module Error type
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum WaylandIdleInhibitorError {
-    WlEventQueueUnkownErrorOnReadLock,
-}
-
-impl Display for WaylandIdleInhibitorError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            WaylandIdleInhibitorError::WlEventQueueUnkownErrorOnReadLock => {
-                "Unknown error when trying to get a read lock on the Wayland Event Queue"
-                    .to_string()
-                    .fmt(f)
-            }
-        }
-    }
-}
-
-impl Error for WaylandIdleInhibitorError {}

@@ -17,9 +17,13 @@
 //! Inhibit idle in Wayland compositors when audio is being played through PipeWire, with highly
 //! customisable options
 
-use std::sync::{
-    atomic::{self, AtomicBool},
-    Arc,
+use std::{
+    error::Error,
+    process::ExitCode,
+    sync::{
+        atomic::{self, AtomicBool},
+        Arc,
+    },
 };
 
 mod inhibit_idle_state;
@@ -76,23 +80,29 @@ impl From<InhibitIdleStateEvent> for Msg {
     }
 }
 
-fn main() {
-    let settings = match Settings::new() {
-        Ok(settings) => settings,
-        Err(error) => panic!("{}", error),
-    };
+fn main() -> ExitCode {
+    match run() {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            log::error!("{}", error);
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> Result<(), Box<dyn Error>> {
+    let settings = Settings::new()?;
 
     simplelog::TermLogger::init(
         settings.get_verbosity(),
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
-    )
-    .unwrap();
+    )?;
 
-    let epoll = Epoll::new(EpollCreateFlags::empty()).unwrap();
+    let epoll = Epoll::new(EpollCreateFlags::empty())?;
     let (mq, mq_receiver) =
-        message_queue::message_queue::<Msg>(&epoll, MessageQueueType::MainQueue as u64).unwrap();
+        message_queue::message_queue::<Msg>(&epoll, MessageQueueType::MainQueue as u64)?;
 
     let pw_thread = PWThread::new(
         mq.clone(),
@@ -101,14 +111,8 @@ fn main() {
     );
 
     let mut idle_inhibitor: Box<dyn IdleInhibitor> = match settings.get_idle_inhibitor() {
-        settings::IdleInhibitor::DBus => match DbusIdleInhibitor::new() {
-            Ok(dbus_idle_inhibitor) => Box::new(dbus_idle_inhibitor),
-            Err(error) => panic!("{}", error),
-        },
-        settings::IdleInhibitor::Wayland => match WaylandIdleInhibitor::new() {
-            Ok(wayland_idle_inhibitor) => Box::new(wayland_idle_inhibitor),
-            Err(error) => panic!("{}", error),
-        },
+        settings::IdleInhibitor::DBus => Box::new(DbusIdleInhibitor::new()?),
+        settings::IdleInhibitor::Wayland => Box::new(WaylandIdleInhibitor::new()?),
         settings::IdleInhibitor::DryRun => Box::<DryRunIdleInhibitor>::default(),
     };
 
@@ -117,37 +121,35 @@ fn main() {
 
     let term = Arc::new(AtomicBool::new(false));
     for sig in signal_hook::consts::TERM_SIGNALS {
-        signal_hook::flag::register(*sig, Arc::clone(&term)).unwrap();
+        signal_hook::flag::register(*sig, Arc::clone(&term))?;
     }
 
     while !term.load(atomic::Ordering::Relaxed) {
-        let wayland_read_guard = idle_inhibitor.wayland_queue_read_guard().unwrap();
+        let wayland_read_guard = idle_inhibitor.wayland_queue_read_guard()?;
         if let Some(wayland_read_guard) = &wayland_read_guard {
-            epoll
-                .add(
-                    wayland_read_guard.connection_fd(),
-                    EpollEvent::new(EpollFlags::EPOLLIN, MessageQueueType::WaylandQueue as u64),
-                )
-                .unwrap();
+            epoll.add(
+                wayland_read_guard.connection_fd(),
+                EpollEvent::new(EpollFlags::EPOLLIN, MessageQueueType::WaylandQueue as u64),
+            )?;
         }
 
         let mut events = [EpollEvent::empty()];
         let event = match epoll.wait(&mut events, EpollTimeout::NONE) {
             Ok(_) => events[0],
             Err(Errno::EINTR) => continue,
-            Err(err) => panic!("{}", err),
+            Err(err) => Err(err)?,
         };
 
         match event.data().try_into() {
             Ok(MessageQueueType::MainQueue) => {
                 if let Some(wayland_read_guard) = wayland_read_guard {
-                    epoll.delete(wayland_read_guard.connection_fd()).unwrap();
+                    epoll.delete(wayland_read_guard.connection_fd())?;
                     std::mem::drop(wayland_read_guard);
                 }
-                match mq_receiver.recv().unwrap() {
+                match mq_receiver.recv()? {
                     Msg::PWEvent(pw_event) => match pw_event {
                         PWEvent::GraphUpdated => {
-                            pw_thread.send(PWMsg::GraphUpdated).unwrap();
+                            pw_thread.send(PWMsg::GraphUpdated)?;
                         }
 
                         PWEvent::InhibitIdleState(inhibit_idle_state) => {
@@ -158,12 +160,10 @@ fn main() {
                     Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                         match inhibit_idle_state_event {
                             InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                                if let Err(error) = if inhibit_idle_state {
-                                    idle_inhibitor.inhibit()
+                                if inhibit_idle_state {
+                                    idle_inhibitor.inhibit()?;
                                 } else {
-                                    idle_inhibitor.uninhibit()
-                                } {
-                                    panic!("{}", error);
+                                    idle_inhibitor.uninhibit()?;
                                 }
                             }
                         }
@@ -173,9 +173,9 @@ fn main() {
 
             Ok(MessageQueueType::WaylandQueue) => {
                 if let Some(wayland_read_guard) = wayland_read_guard {
-                    epoll.delete(wayland_read_guard.connection_fd()).unwrap();
+                    epoll.delete(wayland_read_guard.connection_fd())?;
                     if wayland_read_guard.read().is_ok() {
-                        idle_inhibitor.wayland_dispatch_pending().unwrap();
+                        idle_inhibitor.wayland_dispatch_pending()?;
                     }
                 }
             }
@@ -184,6 +184,8 @@ fn main() {
         }
     }
 
-    pw_thread.send(PWMsg::Terminate).unwrap();
-    pw_thread.join().unwrap();
+    pw_thread.send(PWMsg::Terminate)?;
+    pw_thread.join()?;
+
+    Ok(())
 }

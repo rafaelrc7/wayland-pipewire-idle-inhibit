@@ -20,7 +20,6 @@
 //! The graph is used to detect if any connection to watched sinks is active.
 
 use std::{
-    any::Any,
     cell::RefCell,
     marker::Send,
     rc::Rc,
@@ -99,13 +98,17 @@ impl PWThread {
     /// Waits for PipeWire [MainLoop] to terminate
     ///
     /// As this function joins with the thread, it takes ownership of the [PWThread] value.
-    pub fn join(self) -> Result<(), Box<dyn Any + Send>> {
-        self.pw_thread.join()
+    pub fn join(self) -> Result<(), String> {
+        self.pw_thread
+            .join()
+            .map_err(|_| "Error joining PipeWire thread".into())
     }
 
     /// Sends message to PipeWire [MainLoop]
-    pub fn send(&self, msg: PWMsg) -> Result<(), PWMsg> {
-        self.pw_event_sender.send(msg)
+    pub fn send(&self, msg: PWMsg) -> Result<(), &str> {
+        self.pw_event_sender
+            .send(msg)
+            .map_err(|_| "Error sending message to PipeWire channel")
     }
 }
 
