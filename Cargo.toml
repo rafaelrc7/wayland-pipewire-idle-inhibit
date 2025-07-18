@@ -15,9 +15,10 @@ categories = ["multimedia"]
 [dependencies]
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive", "cargo", "string"] }
+fastrand = "2.3"
 figment = { version = "0.10", features = ["toml"] }
 log = { version = "0.4", features = ["serde"] }
-nix = { version = "0.30", features = ["event", "mqueue"] }
+nix = { version = "0.30", features = ["event", "mman", "fs"] }
 pipewire = "0.8"
 regex = "1.10"
 serde_regex = "1.1"
@@ -25,7 +26,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_with = "3.7"
 signal-hook = "0.3"
 simplelog = "0.12"
-tempfile = "3.20.0"
 timer = "0.2"
 wayland-client = "0.31"
 wayland-protocols = { version = "0.31", features = ["unstable", "client"] }

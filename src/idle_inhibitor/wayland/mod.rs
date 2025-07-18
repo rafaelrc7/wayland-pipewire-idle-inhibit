@@ -18,8 +18,14 @@
 
 use std::collections::HashMap;
 use std::error::Error;
-use std::os::fd::AsFd;
+use std::iter::repeat_with;
+use std::os::fd::{AsFd, OwnedFd};
 
+use nix::errno::Errno;
+use nix::fcntl::OFlag;
+use nix::sys::mman::{shm_open, shm_unlink};
+use nix::sys::stat::Mode;
+use nix::unistd::ftruncate;
 use wayland_client::backend::ObjectId;
 use wayland_client::protocol::wl_buffer;
 use wayland_client::protocol::wl_output::WlOutput;
@@ -45,8 +51,6 @@ use wayland_protocols_wlr::layer_shell::v1::client::{
     zwlr_layer_shell_v1::{self, ZwlrLayerShellV1},
     zwlr_layer_surface_v1::{self, ZwlrLayerSurfaceV1},
 };
-
-use tempfile;
 
 use super::IdleInhibitor;
 
@@ -274,10 +278,9 @@ impl Surface {
         let stride: i32 = width * 4;
         let pool_size: i32 = height * stride * 2;
 
-        let file = tempfile::tempfile()?;
-        file.set_len(pool_size as u64)?; // Fills the file with 0s to given length
+        let shm = Self::allocate_shm_file(pool_size as i64)?;
 
-        let pool = state.shm.create_pool(file.as_fd(), pool_size, qhandle, ());
+        let pool = state.shm.create_pool(shm.as_fd(), pool_size, qhandle, ());
         let buffer = pool.create_buffer(0, width, height, stride, Format::Argb8888, qhandle, ());
 
         self.wl_surface.attach(Some(&buffer), 0, 0);
@@ -286,6 +289,46 @@ impl Surface {
         pool.destroy(); // Destroys Pool when all buffers are gone
 
         Ok(())
+    }
+
+    /// Creates a shm file, unlinks it (so that it gets removed when closed) and allocates the
+    /// requested number of bytes.
+    fn allocate_shm_file(size: i64) -> Result<OwnedFd, Box<dyn Error>> {
+        let (shm, shm_name) = Self::create_shm_file()?;
+
+        shm_unlink(shm_name.as_str())?;
+        ftruncate(&shm, size)?;
+
+        Ok(shm)
+    }
+
+    /// Creates a shm file with a random name. In case of name conflicts it retries the process
+    /// multiple times.
+    fn create_shm_file() -> Result<(OwnedFd, String), Box<dyn Error>> {
+        let mut rng = fastrand::Rng::new();
+        let mut retries: u32 = 100;
+
+        loop {
+            if retries == 0 {
+                break Err(Box::new(Errno::EEXIST));
+            }
+            retries = retries.saturating_sub(1);
+
+            let shm_name_suffix: String = repeat_with(|| rng.alphanumeric()).take(10).collect();
+            let shm_name = format!("/wayland-pipewire-idle-inhibit-buffer-{}", shm_name_suffix);
+
+            let shm = shm_open(
+                shm_name.as_str(),
+                OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_RDWR,
+                Mode::S_IWUSR | Mode::S_IRUSR,
+            );
+
+            match shm {
+                Ok(shm) => break Ok((shm, shm_name)),
+                Err(Errno::EEXIST) => continue,
+                Err(err) => break Err(Box::new(err)),
+            }
+        }
     }
 
     /// Create or destroy the surface's [ZwpIdleInhibitorV1]. Returns true if state was changed,
