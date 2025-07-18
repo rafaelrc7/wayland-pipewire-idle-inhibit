@@ -17,9 +17,10 @@
 //! Inhibit idle in Wayland compositors when audio is being played through PipeWire, with highly
 //! customisable options
 
-use std::thread;
-
-use signal_hook::{consts::TERM_SIGNALS, iterator::Signals};
+use std::sync::{
+    atomic::{self, AtomicBool},
+    Arc,
+};
 
 mod inhibit_idle_state;
 use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
@@ -61,7 +62,6 @@ impl TryFrom<u64> for MessageQueueType {
 enum Msg {
     PWEvent(PWEvent),
     InhibitIdleStateEvent(InhibitIdleStateEvent),
-    Terminate,
 }
 
 impl From<PWEvent> for Msg {
@@ -94,16 +94,6 @@ fn main() {
     let (mq, mq_receiver) =
         message_queue::message_queue::<Msg>(&epoll, MessageQueueType::MainQueue as u64).unwrap();
 
-    let mut signals = Signals::new(TERM_SIGNALS).expect("Failed to create signal listener");
-    let signal_thread = thread::spawn({
-        let mq = mq.clone();
-        move || {
-            for _sig in signals.wait() {
-                mq.send(Msg::Terminate).unwrap();
-            }
-        }
-    });
-
     let pw_thread = PWThread::new(
         mq.clone(),
         settings.get_sink_whitelist().to_vec(),
@@ -125,7 +115,12 @@ fn main() {
     let mut inhibit_idle_state_manager: InhibitIdleState<Msg> =
         InhibitIdleState::new(settings.get_media_minimum_duration(), mq.clone());
 
-    loop {
+    let term = Arc::new(AtomicBool::new(false));
+    for sig in signal_hook::consts::TERM_SIGNALS {
+        signal_hook::flag::register(*sig, Arc::clone(&term)).unwrap();
+    }
+
+    while !term.load(atomic::Ordering::Relaxed) {
         let wayland_read_guard = idle_inhibitor.wayland_queue_read_guard().unwrap();
         if let Some(wayland_read_guard) = &wayland_read_guard {
             epoll
@@ -135,7 +130,14 @@ fn main() {
                 )
                 .unwrap();
         }
-        let event = epoll_wait(&epoll).unwrap();
+
+        let mut events = [EpollEvent::empty()];
+        let event = match epoll.wait(&mut events, EpollTimeout::NONE) {
+            Ok(_) => events[0],
+            Err(Errno::EINTR) => continue,
+            Err(err) => panic!("{}", err),
+        };
+
         match event.data().try_into() {
             Ok(MessageQueueType::MainQueue) => {
                 if let Some(wayland_read_guard) = wayland_read_guard {
@@ -166,11 +168,6 @@ fn main() {
                             }
                         }
                     }
-
-                    Msg::Terminate => {
-                        pw_thread.send(PWMsg::Terminate).unwrap();
-                        break;
-                    }
                 }
             }
 
@@ -187,15 +184,6 @@ fn main() {
         }
     }
 
+    pw_thread.send(PWMsg::Terminate).unwrap();
     pw_thread.join().unwrap();
-    signal_thread.join().unwrap();
-}
-
-fn epoll_wait(epoll: &Epoll) -> Result<EpollEvent, Errno> {
-    let mut events = [EpollEvent::empty()];
-    match epoll.wait(&mut events, EpollTimeout::NONE) {
-        Ok(_) => Ok(events[0]),
-        Err(Errno::EINTR) => epoll_wait(epoll),
-        Err(err) => Err(err),
-    }
 }
