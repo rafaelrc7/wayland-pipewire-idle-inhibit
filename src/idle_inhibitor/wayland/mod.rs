@@ -20,12 +20,12 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::os::fd::AsFd;
 
-use wayland_client::backend::{ObjectId, ReadEventsGuard};
+use wayland_client::backend::ObjectId;
 use wayland_client::protocol::wl_buffer;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::{
     delegate_noop,
-    globals::{registry_queue_init, GlobalList, GlobalListContents},
+    globals::{registry_queue_init, GlobalListContents},
     protocol::{
         wl_buffer::WlBuffer,
         wl_compositor::WlCompositor,
@@ -52,17 +52,13 @@ use super::IdleInhibitor;
 
 // Structs
 
-/// Wrapper to the Wayland objects and event queue
+pub type WaylandEventQueue = EventQueue<WaylandIdleInhibitor>;
+
+/// Wayland Idle Inhibitor
 #[derive(Debug)]
 pub struct WaylandIdleInhibitor {
-    event_queue: EventQueue<WaylandState>,
-    wl_state: WaylandState,
-}
-
-/// Wayland globals and outputs
-#[derive(Debug)]
-struct WaylandState {
     compositor: WlCompositor,
+    qhandle: QueueHandle<Self>,
     shm: WlShm,
     wlr_layer_shell: ZwlrLayerShellV1,
     idle_inhibit_manager: ZwpIdleInhibitManagerV1,
@@ -93,113 +89,20 @@ struct SurfaceIdleInhibitor(ZwpIdleInhibitorV1);
 // Struct implemenations
 
 impl WaylandIdleInhibitor {
-    /// Creates an instance, including a surface, and fires and treats initial events
-    pub fn new() -> Result<Self, Box<dyn Error>> {
-        let connection = Connection::connect_to_env()?;
-        let (global_list, event_queue) = registry_queue_init::<WaylandState>(&connection)?;
-        let qhandle = &event_queue.handle();
-
-        let mut wl_state = WaylandState::new(&global_list, qhandle)?;
-        wl_state.init_missing_surfaces(qhandle);
-
-        let mut wayland_idle_inhibitor = Self {
-            event_queue,
-            wl_state,
-        };
-
-        wayland_idle_inhibitor.roundtrip()?;
-
-        log::debug!(target: "WaylandIdleInhibitor::new", "Instance built");
-        Ok(wayland_idle_inhibitor)
-    }
-
-    /// Fires enqueued Wayland events to be treated
-    fn roundtrip(&mut self) -> Result<usize, wayland_client::DispatchError> {
-        self.event_queue.roundtrip(&mut self.wl_state)
-    }
-
-    /// Get a read lock of the event queue, flushing necessary events
-    fn prepare_read(&mut self) -> Result<ReadEventsGuard, Box<dyn Error>> {
-        self.event_queue.flush()?;
-        if let Some(lock) = self.event_queue.prepare_read() {
-            Ok(lock)
-        } else {
-            self.event_queue.dispatch_pending(&mut self.wl_state)?;
-            Ok(self
-                .event_queue
-                .prepare_read()
-                .ok_or("Unknown error when trying to get a read lock on the Wayland Event Queue")?)
-        }
-    }
-
-    /// Enables or disables Idle inhibiting using the Wayland protocol, using a
-    /// [ZwpIdleInhibitorV1] for each [Surface]
-    pub fn set_inhibit_idle(&mut self, inhibit_idle: bool) -> Result<(), Box<dyn Error>> {
-        self.wl_state.is_idle_inhibited = inhibit_idle;
-
-        let state = &mut self.wl_state;
-        let qhandle = &self.event_queue.handle();
-        let surfaces: Vec<&mut Surface> = state
-            .outputs
-            .iter_mut()
-            .filter_map(|(_, v)| v.surface.as_mut())
-            .collect();
-
-        if surfaces.is_empty() {
-            log::debug!(target: "WaylandIdleInhibitor::set_inhibit_idle", "No surfaces loaded");
-            return Ok(());
-        }
-
-        let mut changed_value = false;
-        for surface in surfaces {
-            changed_value =
-                surface.set_inhibit_idle(inhibit_idle, &state.idle_inhibit_manager, qhandle)
-                    || changed_value;
-        }
-
-        if changed_value {
-            self.roundtrip()?;
-            log::info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was {}", if inhibit_idle {"ENABLED"} else {"DISABLED"});
-        }
-
-        Ok(())
-    }
-}
-
-impl IdleInhibitor for WaylandIdleInhibitor {
-    fn inhibit(&mut self) -> Result<(), Box<dyn Error>> {
-        self.set_inhibit_idle(true)
-    }
-
-    fn uninhibit(&mut self) -> Result<(), Box<dyn Error>> {
-        self.set_inhibit_idle(false)
-    }
-
-    fn wayland_queue_read_guard(&mut self) -> Result<Option<ReadEventsGuard>, Box<dyn Error>> {
-        self.prepare_read().map(Some)
-    }
-
-    fn wayland_dispatch_pending(&mut self) -> Result<(), Box<dyn Error>> {
-        Ok(self
-            .event_queue
-            .dispatch_pending(&mut self.wl_state)
-            .map(|_| ())?)
-    }
-}
-
-impl WaylandState {
     /// Creates an instance by going through the globals list and binding the relevant ones. Does
     /// not create a surface.
-    fn new(
-        global_list: &GlobalList,
-        qhandle: &QueueHandle<WaylandState>,
-    ) -> Result<Self, Box<dyn Error>> {
+    pub fn new() -> Result<(Self, WaylandEventQueue), Box<dyn Error>> {
+        let connection = Connection::connect_to_env()?;
+        let (global_list, mut event_queue) = registry_queue_init::<Self>(&connection)?;
+        let qhandle = event_queue.handle();
+
         // TODO: Set sane versions for each interface. Versions should be from the minimal
         // necessary
-        let compositor: WlCompositor = global_list.bind(qhandle, 6..=6, ())?;
-        let shm: WlShm = global_list.bind(qhandle, 1..=1, ())?;
-        let wlr_layer_shell: ZwlrLayerShellV1 = global_list.bind(qhandle, 1..=1, ())?;
-        let idle_inhibit_manager: ZwpIdleInhibitManagerV1 = global_list.bind(qhandle, 1..=1, ())?;
+        let compositor: WlCompositor = global_list.bind(&qhandle, 6..=6, ())?;
+        let shm: WlShm = global_list.bind(&qhandle, 1..=1, ())?;
+        let wlr_layer_shell: ZwlrLayerShellV1 = global_list.bind(&qhandle, 1..=1, ())?;
+        let idle_inhibit_manager: ZwpIdleInhibitManagerV1 =
+            global_list.bind(&qhandle, 1..=1, ())?;
 
         let registry: &WlRegistry = global_list.registry();
 
@@ -207,38 +110,41 @@ impl WaylandState {
             .contents()
             .clone_list()
             .iter()
-            .filter(|g| g.interface == WlOutput::interface().name)
-            .map(|g| {
-                (
-                    g.name,
-                    Output::new(registry.bind(g.name, g.version, qhandle, ())),
-                )
+            .filter_map(|global| {
+                if global.interface == WlOutput::interface().name {
+                    Some((
+                        global.name,
+                        Output::new(registry.bind(global.name, global.version, &qhandle, ())),
+                    ))
+                } else {
+                    None
+                }
             })
             .collect();
 
-        Ok(Self {
+        let mut obj = Self {
             compositor,
+            qhandle,
             shm,
             wlr_layer_shell,
             idle_inhibit_manager,
             outputs,
             is_idle_inhibited: false,
-        })
+        };
+        obj.init_missing_surfaces();
+
+        event_queue.roundtrip(&mut obj)?;
+
+        Ok((obj, event_queue))
     }
 
     /// Create surfaces for all outputs that do not already have one
-    fn init_missing_surfaces(&mut self, qhandle: &QueueHandle<WaylandState>) {
+    fn init_missing_surfaces(&mut self) {
         log::debug!(target: "WaylandIdleInhibitor::init_surfaces", "Initialising missing surfaces");
         let missing_surface_outputs: Vec<u32> = self
             .outputs
             .iter()
-            .filter_map(|(k, v)| {
-                if v.surface.is_none() {
-                    Some(k.to_owned())
-                } else {
-                    None
-                }
-            })
+            .filter_map(|(k, v)| if v.surface.is_none() { Some(*k) } else { None })
             .collect();
 
         if missing_surface_outputs.is_empty() {
@@ -251,8 +157,12 @@ impl WaylandState {
                 continue;
             };
 
-            let mut surface = Surface::new(self, qhandle, &output.wl_output);
-            surface.set_inhibit_idle(self.is_idle_inhibited, &self.idle_inhibit_manager, qhandle);
+            let mut surface = Surface::new(self, &self.qhandle, &output.wl_output);
+            surface.set_inhibit_idle(
+                self.is_idle_inhibited,
+                &self.idle_inhibit_manager,
+                &self.qhandle,
+            );
 
             let Some(output) = self.outputs.get_mut(&output_id) else {
                 continue;
@@ -275,6 +185,47 @@ impl WaylandState {
             }
         })
     }
+
+    /// Enables or disables Idle inhibiting using the Wayland protocol, using a
+    /// [ZwpIdleInhibitorV1] for each [Surface]
+    pub fn set_inhibit_idle(&mut self, inhibit_idle: bool) -> Result<(), Box<dyn Error>> {
+        self.is_idle_inhibited = inhibit_idle;
+
+        let surfaces: Vec<&mut Surface> = self
+            .outputs
+            .iter_mut()
+            .filter_map(|(_, v)| v.surface.as_mut())
+            .collect();
+
+        if surfaces.is_empty() {
+            log::debug!(target: "WaylandIdleInhibitor::set_inhibit_idle", "No surfaces loaded");
+            return Ok(());
+        }
+
+        let mut changed_value = false;
+        for surface in surfaces {
+            changed_value =
+                surface.set_inhibit_idle(inhibit_idle, &self.idle_inhibit_manager, &self.qhandle)
+                    || changed_value;
+        }
+
+        if changed_value {
+            //self.roundtrip()?;
+            log::info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was {}", if inhibit_idle {"ENABLED"} else {"DISABLED"});
+        }
+
+        Ok(())
+    }
+}
+
+impl IdleInhibitor for WaylandIdleInhibitor {
+    fn inhibit(&mut self) -> Result<(), Box<dyn Error>> {
+        self.set_inhibit_idle(true)
+    }
+
+    fn uninhibit(&mut self) -> Result<(), Box<dyn Error>> {
+        self.set_inhibit_idle(false)
+    }
 }
 
 impl Output {
@@ -289,7 +240,11 @@ impl Output {
 impl Surface {
     /// Creates an instance. It must receive a [zwlr_layer_surface_v1::Event::Configure] event
     /// before the buffer is created and attached
-    fn new(state: &WaylandState, qhandle: &QueueHandle<WaylandState>, output: &WlOutput) -> Self {
+    fn new(
+        state: &WaylandIdleInhibitor,
+        qhandle: &QueueHandle<WaylandIdleInhibitor>,
+        output: &WlOutput,
+    ) -> Self {
         let wl_surface = state.compositor.create_surface(qhandle, ());
         let wlr_layer_surface = state.wlr_layer_shell.get_layer_surface(
             &wl_surface,
@@ -313,8 +268,8 @@ impl Surface {
     /// [zwlr_layer_surface_v1::Event::Configure] event.
     fn configure(
         &self,
-        state: &WaylandState,
-        qhandle: &QueueHandle<WaylandState>,
+        state: &WaylandIdleInhibitor,
+        qhandle: &QueueHandle<WaylandIdleInhibitor>,
     ) -> Result<(), Box<dyn Error>> {
         let width: i32 = 1;
         let height: i32 = 1;
@@ -341,7 +296,7 @@ impl Surface {
         &mut self,
         inhibit_idle: bool,
         idle_inhibit_manager: &ZwpIdleInhibitManagerV1,
-        qhandle: &QueueHandle<WaylandState>,
+        qhandle: &QueueHandle<WaylandIdleInhibitor>,
     ) -> bool {
         if inhibit_idle {
             if self.idle_inhibitor.is_none() {
@@ -363,7 +318,7 @@ impl Surface {
 // Drop implementations to release Wayland resources. Objects are kepf even after the proxy goes
 // out of scope. Thus, we need to manually call the `destroy` destructor.
 
-impl Drop for WaylandState {
+impl Drop for WaylandIdleInhibitor {
     fn drop(&mut self) {
         self.idle_inhibit_manager.destroy();
         self.shm.release();
@@ -394,7 +349,7 @@ impl Drop for SurfaceIdleInhibitor {
 // Event callback implementations
 
 /// Subscribes to the [ZwlrLayerSurfaceV1] events waiting for configure and closed events.
-impl Dispatch<ZwlrLayerSurfaceV1, ()> for WaylandState {
+impl Dispatch<ZwlrLayerSurfaceV1, ()> for WaylandIdleInhibitor {
     fn event(
         state: &mut Self,
         proxy: &ZwlrLayerSurfaceV1,
@@ -441,7 +396,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for WaylandState {
 }
 
 /// Subscribes to the [WlRegistry] events, mainly to treat added and removed objects
-impl Dispatch<WlRegistry, GlobalListContents> for WaylandState {
+impl Dispatch<WlRegistry, GlobalListContents> for WaylandIdleInhibitor {
     fn event(
         state: &mut Self,
         proxy: &WlRegistry,
@@ -461,7 +416,7 @@ impl Dispatch<WlRegistry, GlobalListContents> for WaylandState {
                     log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New output {}", name);
                     let wl_output = proxy.bind(name, version, qhandle, ());
                     state.outputs.insert(name, Output::new(wl_output));
-                    state.init_missing_surfaces(qhandle);
+                    state.init_missing_surfaces();
                 }
             }
             wl_registry::Event::GlobalRemove { name } => {
@@ -476,7 +431,7 @@ impl Dispatch<WlRegistry, GlobalListContents> for WaylandState {
 }
 
 /// Subscribes to the [WlBuffer] events, to destroy the buffer when it is time.
-impl Dispatch<WlBuffer, ()> for WaylandState {
+impl Dispatch<WlBuffer, ()> for WaylandIdleInhibitor {
     fn event(
         _state: &mut Self,
         proxy: &WlBuffer,
@@ -492,13 +447,13 @@ impl Dispatch<WlBuffer, ()> for WaylandState {
 }
 
 // These interfaces have no events.
-delegate_noop!(WaylandState: WlCompositor);
-delegate_noop!(WaylandState: ZwpIdleInhibitManagerV1);
-delegate_noop!(WaylandState: ZwpIdleInhibitorV1);
-delegate_noop!(WaylandState: WlShmPool);
-delegate_noop!(WaylandState: ZwlrLayerShellV1);
+delegate_noop!(WaylandIdleInhibitor: WlCompositor);
+delegate_noop!(WaylandIdleInhibitor: ZwpIdleInhibitManagerV1);
+delegate_noop!(WaylandIdleInhibitor: ZwpIdleInhibitorV1);
+delegate_noop!(WaylandIdleInhibitor: WlShmPool);
+delegate_noop!(WaylandIdleInhibitor: ZwlrLayerShellV1);
 
 // Ignore events from these object types.
-delegate_noop!(WaylandState: ignore WlSurface);
-delegate_noop!(WaylandState: ignore WlShm);
-delegate_noop!(WaylandState: ignore WlOutput);
+delegate_noop!(WaylandIdleInhibitor: ignore WlSurface);
+delegate_noop!(WaylandIdleInhibitor: ignore WlShm);
+delegate_noop!(WaylandIdleInhibitor: ignore WlOutput);

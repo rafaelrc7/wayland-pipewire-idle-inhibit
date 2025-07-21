@@ -16,8 +16,6 @@
 
 use std::error::Error;
 
-use wayland_client::backend::ReadEventsGuard;
-
 pub mod dbus;
 pub mod dry;
 pub mod wayland;
@@ -28,18 +26,4 @@ pub trait IdleInhibitor {
 
     /// Uninhibit Idle, does nothing if idle is not inhibited
     fn uninhibit(&mut self) -> Result<(), Box<dyn Error>>;
-
-    /// Get a read lock of the event queue, flushing necessary events.
-    ///
-    /// Only relevant for implementations dependent on Wayland
-    fn wayland_queue_read_guard(&mut self) -> Result<Option<ReadEventsGuard>, Box<dyn Error>> {
-        Ok(None)
-    }
-
-    /// Dispatch and process new events in queue.
-    ///
-    /// Only relevant for implementations dependent on Wayland
-    fn wayland_dispatch_pending(&mut self) -> Result<(), Box<dyn Error>> {
-        Ok(())
-    }
 }
