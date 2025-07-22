@@ -50,18 +50,17 @@ use nix::{errno::Errno, sys::epoll::*};
 
 #[repr(u64)]
 enum MessageQueueType {
-    WaylandQueue,
-    MainQueue,
+    Unknown,
+    Wayland,
+    Main,
 }
 
-impl TryFrom<u64> for MessageQueueType {
-    type Error = ();
-
-    fn try_from(value: u64) -> Result<Self, Self::Error> {
+impl From<u64> for MessageQueueType {
+    fn from(value: u64) -> Self {
         match value {
-            value if value == Self::WaylandQueue as u64 => Ok(Self::WaylandQueue),
-            value if value == Self::MainQueue as u64 => Ok(Self::MainQueue),
-            _ => Err(()),
+            value if value == Self::Wayland as u64 => Self::Wayland,
+            value if value == Self::Main as u64 => Self::Main,
+            _ => Self::Unknown,
         }
     }
 }
@@ -140,7 +139,7 @@ fn run() -> Result<(), Box<dyn Error>> {
 
     let epoll = Epoll::new(EpollCreateFlags::empty())?;
     let (mq, mq_receiver) =
-        message_queue::message_queue::<Msg>(&epoll, MessageQueueType::MainQueue as u64)?;
+        message_queue::message_queue::<Msg>(&epoll, MessageQueueType::Main as u64)?;
 
     let pw_thread = PWThread::new(
         mq.clone(),
@@ -222,7 +221,7 @@ fn wayland_main_loop(
 
         epoll.add(
             wayland_read_guard.connection_fd(),
-            EpollEvent::new(EpollFlags::EPOLLIN, MessageQueueType::WaylandQueue as u64),
+            EpollEvent::new(EpollFlags::EPOLLIN, MessageQueueType::Wayland as u64),
         )?;
 
         let mut events = [EpollEvent::empty()];
@@ -232,8 +231,8 @@ fn wayland_main_loop(
             Err(err) => Err(err)?,
         };
 
-        match event.data().try_into() {
-            Ok(MessageQueueType::MainQueue) => {
+        match event.data().into() {
+            MessageQueueType::Main => {
                 epoll.delete(wayland_read_guard.connection_fd())?;
                 std::mem::drop(wayland_read_guard);
                 mq_receiver.recv()?.handle(
@@ -243,14 +242,14 @@ fn wayland_main_loop(
                 )?;
             }
 
-            Ok(MessageQueueType::WaylandQueue) => {
+            MessageQueueType::Wayland => {
                 epoll.delete(wayland_read_guard.connection_fd())?;
                 if wayland_read_guard.read().is_ok() {
                     wayland_event_queue.dispatch_pending(&mut wayland_idle_inhibitor)?;
                 }
             }
 
-            _ => log::error!(target: "main", "Unknown event queue"),
+            MessageQueueType::Unknown => log::error!(target: "main", "Unknown event queue"),
         }
     }
     Ok(())
@@ -272,8 +271,8 @@ fn non_wayland_main_loop(
             Err(err) => Err(err)?,
         };
 
-        match event.data().try_into() {
-            Ok(MessageQueueType::MainQueue) => match mq_receiver.recv()? {
+        match event.data().into() {
+            MessageQueueType::Main => match mq_receiver.recv()? {
                 Msg::PWEvent(pw_event) => match pw_event {
                     PWEvent::GraphUpdated => {
                         pw_thread.send(PWMsg::GraphUpdated)?;
@@ -297,9 +296,9 @@ fn non_wayland_main_loop(
                 }
             },
 
-            Ok(MessageQueueType::WaylandQueue) => {}
+            MessageQueueType::Wayland => {}
 
-            _ => log::error!(target: "main", "Unknown event queue"),
+            MessageQueueType::Unknown => log::error!(target: "main", "Unknown event queue"),
         }
     }
     Ok(())
