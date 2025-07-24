@@ -17,6 +17,7 @@ chrono = "0.4"
 clap = { version = "4.5", features = ["derive", "cargo", "string"] }
 figment = { version = "0.10", features = ["toml"] }
 log = { version = "0.4", features = ["serde"] }
+nix = { version = "0.30", features = ["event", "mqueue"] }
 pipewire = "0.8"
 regex = "1.10"
 serde_regex = "1.1"
