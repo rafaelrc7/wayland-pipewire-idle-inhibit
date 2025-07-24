@@ -442,14 +442,13 @@ impl Dispatch<WlBuffer, ()> for WaylandIdleInhibitor {
     }
 }
 
-// These interfaces have no events.
-delegate_noop!(WaylandIdleInhibitor: WlCompositor);
-delegate_noop!(WaylandIdleInhibitor: ZwpIdleInhibitManagerV1);
-delegate_noop!(WaylandIdleInhibitor: ZwpIdleInhibitorV1);
-delegate_noop!(WaylandIdleInhibitor: WlShmPool);
-delegate_noop!(WaylandIdleInhibitor: ZwlrLayerShellV1);
-
 // Ignore events from these object types.
-delegate_noop!(WaylandIdleInhibitor: ignore WlSurface);
-delegate_noop!(WaylandIdleInhibitor: ignore WlShm);
 delegate_noop!(WaylandIdleInhibitor: ignore WlOutput);
+delegate_noop!(WaylandIdleInhibitor: ignore WlShm);
+delegate_noop!(WaylandIdleInhibitor: ignore WlSurface);
+
+delegate_noop!(WaylandIdleInhibitor: ignore WlCompositor);
+delegate_noop!(WaylandIdleInhibitor: ignore WlShmPool);
+delegate_noop!(WaylandIdleInhibitor: ignore ZwlrLayerShellV1);
+delegate_noop!(WaylandIdleInhibitor: ignore ZwpIdleInhibitManagerV1);
+delegate_noop!(WaylandIdleInhibitor: ignore ZwpIdleInhibitorV1);
