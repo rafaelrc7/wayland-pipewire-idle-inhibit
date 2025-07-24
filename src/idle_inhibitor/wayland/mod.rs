@@ -96,9 +96,7 @@ impl WaylandIdleInhibitor {
         let (global_list, mut event_queue) = registry_queue_init::<Self>(&connection)?;
         let qhandle = event_queue.handle();
 
-        // TODO: Set sane versions for each interface. Versions should be from the minimal
-        // necessary
-        let compositor: WlCompositor = global_list.bind(&qhandle, 6..=6, ())?;
+        let compositor: WlCompositor = global_list.bind(&qhandle, 1..=1, ())?;
         let shm: WlShm = global_list.bind(&qhandle, 1..=1, ())?;
         let wlr_layer_shell: ZwlrLayerShellV1 = global_list.bind(&qhandle, 1..=1, ())?;
         let idle_inhibit_manager: ZwpIdleInhibitManagerV1 =
@@ -114,7 +112,7 @@ impl WaylandIdleInhibitor {
                 if global.interface == WlOutput::interface().name {
                     Some((
                         global.name,
-                        Output::new(registry.bind(global.name, global.version, &qhandle, ())),
+                        Output::new(registry.bind(global.name, 1, &qhandle, ())),
                     ))
                 } else {
                     None
@@ -407,14 +405,12 @@ impl Dispatch<WlRegistry, GlobalListContents> for WaylandIdleInhibitor {
     ) {
         match event {
             wl_registry::Event::Global {
-                name,
-                interface,
-                version,
+                name, interface, ..
             } => {
-                log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New {} [{}] v{}", interface, name, version);
+                log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New {} [{}] v{}", interface, name, 1);
                 if interface == WlOutput::interface().name {
                     log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New output {}", name);
-                    let wl_output = proxy.bind(name, version, qhandle, ());
+                    let wl_output = proxy.bind(name, 1, qhandle, ());
                     state.outputs.insert(name, Output::new(wl_output));
                     state.init_missing_surfaces();
                 }
