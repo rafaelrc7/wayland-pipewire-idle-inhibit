@@ -3,8 +3,6 @@
   pipewire,
   pkg-config,
   rustPlatform,
-  wayland,
-  wayland-protocols,
 }:
 let
   cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
@@ -15,6 +13,8 @@ rustPlatform.buildRustPackage {
   cargoLock.lockFile = ./Cargo.lock;
   src = lib.cleanSource ./.;
 
+  strictDeps = true;
+
   nativeBuildInputs = [
     pkg-config
     rustPlatform.bindgenHook
@@ -22,7 +22,5 @@ rustPlatform.buildRustPackage {
 
   buildInputs = [
     pipewire
-    wayland
-    wayland-protocols
   ];
 }
