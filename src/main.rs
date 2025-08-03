@@ -92,11 +92,7 @@ impl Msg {
             Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                 match inhibit_idle_state_event {
                     InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                        if *inhibit_idle_state {
-                            idle_inhibitor.inhibit()?;
-                        } else {
-                            idle_inhibitor.uninhibit()?;
-                        }
+                        idle_inhibitor.set_inhibit_idle(*inhibit_idle_state)?;
                     }
                 }
             }
@@ -286,11 +282,7 @@ fn non_wayland_main_loop(
                 Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
                     match inhibit_idle_state_event {
                         InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                            if inhibit_idle_state {
-                                idle_inhibitor.inhibit()?;
-                            } else {
-                                idle_inhibitor.uninhibit()?;
-                            }
+                            idle_inhibitor.set_inhibit_idle(inhibit_idle_state)?;
                         }
                     }
                 }

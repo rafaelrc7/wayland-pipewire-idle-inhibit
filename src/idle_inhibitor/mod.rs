@@ -26,4 +26,12 @@ pub trait IdleInhibitor {
 
     /// Uninhibit Idle, does nothing if idle is not inhibited
     fn uninhibit(&mut self) -> Result<(), Box<dyn Error>>;
+
+    fn set_inhibit_idle(&mut self, should_inhibit_idle: bool) -> Result<(), Box<dyn Error>> {
+        if should_inhibit_idle {
+            self.inhibit()
+        } else {
+            self.uninhibit()
+        }
+    }
 }
