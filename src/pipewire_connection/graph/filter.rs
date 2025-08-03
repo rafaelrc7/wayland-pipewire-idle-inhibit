@@ -66,7 +66,7 @@ pub trait Filter<T> {
 fn matches_property(filter: &Option<Regex>, property: Option<&str>) -> bool {
     filter
         .as_ref()
-        .map_or(true, |f| property.is_some_and(|p| f.is_match(p)))
+        .is_none_or(|f| property.is_some_and(|p| f.is_match(p)))
 }
 
 /// Represents a [Filter] over a Sink. A Sink is a special case of a Node, and thus filters over

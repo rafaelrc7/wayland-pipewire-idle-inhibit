@@ -315,7 +315,7 @@ impl Surface {
             retries = retries.saturating_sub(1);
 
             let shm_name_suffix: String = repeat_with(|| rng.alphanumeric()).take(10).collect();
-            let shm_name = format!("/wayland-pipewire-idle-inhibit-buffer-{}", shm_name_suffix);
+            let shm_name = format!("/wayland-pipewire-idle-inhibit-buffer-{shm_name_suffix}");
 
             let shm = shm_open(
                 shm_name.as_str(),
@@ -413,7 +413,7 @@ impl Dispatch<ZwlrLayerSurfaceV1, ()> for WaylandIdleInhibitor {
                 {
                     surface.wlr_layer_surface.ack_configure(serial);
                     if let Err(error) = surface.configure(state, qhandle) {
-                        log::error!(target: "WaylandIdleInhibitor::ZwlrLayerSurfaceV1::Event::Configure", "{}", error);
+                        log::error!(target: "WaylandIdleInhibitor::ZwlrLayerSurfaceV1::Event::Configure", "{error}");
                         return;
                     }
                     log::debug!(target: "WaylandIdleInhibitor::ZwlrLayerSurfaceV1::Event::Configure", "Configured");
@@ -452,16 +452,16 @@ impl Dispatch<WlRegistry, GlobalListContents> for WaylandIdleInhibitor {
             } => {
                 log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New {} [{}] v{}", interface, name, 1);
                 if interface == WlOutput::interface().name {
-                    log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New output {}", name);
+                    log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New output {name}");
                     let wl_output = proxy.bind(name, 1, qhandle, ());
                     state.outputs.insert(name, Output::new(wl_output));
                     state.init_missing_surfaces();
                 }
             }
             wl_registry::Event::GlobalRemove { name } => {
-                log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "Removed {}", name);
+                log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "Removed {name}");
                 if state.outputs.remove(&name).is_some() {
-                    log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::GlobalRemove", "Removed output {}", name);
+                    log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::GlobalRemove", "Removed output {name}");
                 }
             }
             _ => {}

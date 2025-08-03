@@ -121,7 +121,7 @@ fn main() -> ExitCode {
     match run() {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
-            log::error!("{}", error);
+            log::error!("{error}");
             ExitCode::FAILURE
         }
     }

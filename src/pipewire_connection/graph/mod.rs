@@ -89,14 +89,14 @@ impl PWGraph {
                 if let (Some(node_id), Some(direction)) = (node_id, direction) {
                     match *direction {
                         Direction::Input => {
-                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input; {:?}", data);
+                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Input; {data:?}");
                             self.node_input_ports
                                 .entry(*node_id)
                                 .or_default()
                                 .insert(id);
                         }
                         Direction::Output => {
-                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output; {:?}", data);
+                            debug!(target: "PWGraph::insert", "Port ({id}) as Node {node_id} Output; {data:?}");
                             self.node_output_ports
                                 .entry(*node_id)
                                 .or_default()
@@ -113,7 +113,7 @@ impl PWGraph {
                     ..
                 } = data;
 
-                debug!(target: "PWGraph::insert", "Link ({id}); {:?}", data);
+                debug!(target: "PWGraph::insert", "Link ({id}); {data:?}");
 
                 if let Some(output_port) = output_port {
                     debug!(target: "PWGraph::insert", "Link ({id}) with output_port {output_port}");
@@ -176,9 +176,9 @@ impl PWGraph {
                     }
                 }
 
-                debug!(target: "PWGraph::update", "Updated Node ({id}) from {:?}", data);
+                debug!(target: "PWGraph::update", "Updated Node ({id}) from {data:?}");
                 let was_updated = data.update(new_data);
-                debug!(target: "PWGraph::update", "Updated Node ({id}) to {:?}", data);
+                debug!(target: "PWGraph::update", "Updated Node ({id}) to {data:?}");
                 was_updated
             }
             PWObjectData::Port(new_data) => {
@@ -235,9 +235,9 @@ impl PWGraph {
                     }
                 }
 
-                debug!(target: "PWGraph::update", "Updated Port ({id}) from {:?}", data);
+                debug!(target: "PWGraph::update", "Updated Port ({id}) from {data:?}");
                 let was_updated = data.update(new_data);
-                debug!(target: "PWGraph::update", "Updated Port ({id}) to {:?}", data);
+                debug!(target: "PWGraph::update", "Updated Port ({id}) to {data:?}");
                 was_updated
             }
             PWObjectData::Link(new_data) => {
@@ -287,9 +287,9 @@ impl PWGraph {
                     }
                 }
 
-                debug!(target: "PWGraph::update", "Updated Link ({id}) from {:?}", data);
+                debug!(target: "PWGraph::update", "Updated Link ({id}) from {data:?}");
                 let was_updated = data.update(new_data);
-                debug!(target: "PWGraph::update", "Updated Link ({id}) to {:?}", data);
+                debug!(target: "PWGraph::update", "Updated Link ({id}) to {data:?}");
                 was_updated
             }
         }

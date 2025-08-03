@@ -55,7 +55,7 @@ pub fn message_queue<T: Clone>(
         receiver,
         eventfd: eventfd.clone(),
     };
-    log::debug!(target: "MessageQueue::new", "Created new message queue with ID {}", queue_id);
+    log::debug!(target: "MessageQueue::new", "Created new message queue with ID {queue_id}");
     Ok((message_queue_sender, message_queue_receiver))
 }
 
