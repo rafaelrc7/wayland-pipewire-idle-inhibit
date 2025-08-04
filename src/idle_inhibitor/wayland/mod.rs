@@ -30,8 +30,8 @@ use wayland_client::backend::ObjectId;
 use wayland_client::protocol::wl_buffer;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::{
-    delegate_noop,
-    globals::{registry_queue_init, GlobalListContents},
+    Connection, Dispatch, EventQueue, Proxy, QueueHandle, delegate_noop,
+    globals::{GlobalListContents, registry_queue_init},
     protocol::{
         wl_buffer::WlBuffer,
         wl_compositor::WlCompositor,
@@ -40,7 +40,6 @@ use wayland_client::{
         wl_shm_pool::WlShmPool,
         wl_surface::WlSurface,
     },
-    Connection, Dispatch, EventQueue, Proxy, QueueHandle,
 };
 
 use wayland_protocols::wp::idle_inhibit::zv1::client::{

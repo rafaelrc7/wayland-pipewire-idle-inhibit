@@ -20,12 +20,12 @@ use std::{cmp::Ordering, error::Error, fmt::Display, path::PathBuf, str::FromStr
 use chrono::Duration;
 use clap::{Parser, ValueEnum};
 use figment::{
-    providers::{Format, Serialized, Toml},
     Figment,
+    providers::{Format, Serialized, Toml},
 };
-use log::{warn, LevelFilter};
+use log::{LevelFilter, warn};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 
 use crate::pipewire_connection::graph::filter::{NodeFilter, SinkFilter};
 

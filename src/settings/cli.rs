@@ -18,10 +18,10 @@
 
 use std::fmt::Display;
 
-use clap::{builder::PossibleValue, Parser, ValueEnum};
+use clap::{Parser, ValueEnum, builder::PossibleValue};
 use log::LevelFilter;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, NoneAsEmptyString};
+use serde_with::{NoneAsEmptyString, serde_as};
 
 use super::IdleInhibitor;
 

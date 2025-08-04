@@ -21,8 +21,8 @@ use std::{
     error::Error,
     process::ExitCode,
     sync::{
-        atomic::{self, AtomicBool},
         Arc,
+        atomic::{self, AtomicBool},
     },
 };
 
@@ -35,10 +35,10 @@ use pipewire_connection::{PWEvent, PWMsg, PWThread};
 
 mod idle_inhibitor;
 use idle_inhibitor::{
+    IdleInhibitor,
     dbus::DbusIdleInhibitor,
     dry::DryRunIdleInhibitor,
     wayland::{WaylandEventQueue, WaylandIdleInhibitor},
-    IdleInhibitor,
 };
 
 mod settings;

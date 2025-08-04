@@ -34,7 +34,7 @@ use pipewire::{
     node::{Node, NodeInfoRef, NodeListener},
     port::{Port, PortInfoRef, PortListener},
     registry::{GlobalObject, Registry},
-    spa::utils::{dict::DictRef, Direction},
+    spa::utils::{Direction, dict::DictRef},
     types::ObjectType,
 };
 
@@ -42,8 +42,8 @@ use log::debug;
 
 pub mod graph;
 use graph::{
-    object::{Id, LinkData, NodeData, PWObject, PWObjectData, PortData, Proxy},
     PWGraph,
+    object::{Id, LinkData, NodeData, PWObject, PWObjectData, PortData, Proxy},
 };
 
 use graph::filter::{NodeFilter, SinkFilter};

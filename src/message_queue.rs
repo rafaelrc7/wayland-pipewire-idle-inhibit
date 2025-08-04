@@ -16,7 +16,7 @@
 
 use std::{
     error::Error,
-    sync::{mpsc, Arc},
+    sync::{Arc, mpsc},
 };
 
 use nix::sys::{
