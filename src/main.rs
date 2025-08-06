@@ -268,29 +268,15 @@ fn non_wayland_main_loop(
         };
 
         match event.data().into() {
-            MessageQueueType::Main => match mq_receiver.recv()? {
-                Msg::PWEvent(pw_event) => match pw_event {
-                    PWEvent::GraphUpdated => {
-                        pw_thread.send(PWMsg::GraphUpdated)?;
-                    }
-
-                    PWEvent::InhibitIdleState(inhibit_idle_state) => {
-                        inhibit_idle_state_manager.set_is_idle_inhibited(inhibit_idle_state);
-                    }
-                },
-
-                Msg::InhibitIdleStateEvent(inhibit_idle_state_event) => {
-                    match inhibit_idle_state_event {
-                        InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
-                            idle_inhibitor.set_inhibit_idle(inhibit_idle_state)?;
-                        }
-                    }
-                }
-            },
-
-            MessageQueueType::Wayland => {}
+            MessageQueueType::Main => mq_receiver.recv()?.handle(
+                pw_thread,
+                &mut inhibit_idle_state_manager,
+                idle_inhibitor.as_mut(),
+            )?,
 
             MessageQueueType::Unknown => log::error!(target: "main", "Unknown event queue"),
+
+            MessageQueueType::Wayland => unreachable!(),
         }
     }
     Ok(())
