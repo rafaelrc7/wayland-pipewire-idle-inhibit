@@ -246,7 +246,11 @@ fn wayland_main_loop(
         )?;
 
         let mut events = [EpollEvent::empty()];
-        let event = match epoll.wait(&mut events, EpollTimeout::NONE) {
+        let ret = epoll.wait(&mut events, EpollTimeout::NONE);
+
+        epoll.delete(wayland_read_guard.connection_fd())?;
+
+        let event = match ret {
             Ok(_) => events[0],
             Err(Errno::EINTR) => continue,
             Err(err) => Err(err)?,
@@ -254,7 +258,6 @@ fn wayland_main_loop(
 
         match event.data().into() {
             MessageQueueType::Main => {
-                epoll.delete(wayland_read_guard.connection_fd())?;
                 std::mem::drop(wayland_read_guard);
                 mq_receiver.recv()?.handle(
                     pw_thread,
@@ -264,7 +267,6 @@ fn wayland_main_loop(
             }
 
             MessageQueueType::Wayland => {
-                epoll.delete(wayland_read_guard.connection_fd())?;
                 if wayland_read_guard.read().is_ok() {
                     wayland_event_queue.dispatch_pending(&mut wayland_idle_inhibitor)?;
                 }
