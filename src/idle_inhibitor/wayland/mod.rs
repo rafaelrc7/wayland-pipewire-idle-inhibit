@@ -115,7 +115,7 @@ impl WaylandIdleInhibitor {
                 if global.interface == WlOutput::interface().name {
                     Some((
                         global.name,
-                        Output::new(registry.bind(global.name, 1, &qhandle, ())),
+                        Output::new(registry.bind(global.name, 3, &qhandle, ())),
                     ))
                 } else {
                     None
@@ -447,12 +447,14 @@ impl Dispatch<WlRegistry, GlobalListContents> for WaylandIdleInhibitor {
     ) {
         match event {
             wl_registry::Event::Global {
-                name, interface, ..
+                name,
+                interface,
+                version,
             } => {
-                log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New {} [{}] v{}", interface, name, 1);
+                log::trace!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New {interface} [{name}] v{version}");
                 if interface == WlOutput::interface().name {
                     log::debug!(target: "WaylandIdleInhibitor::WlRegistry::Event::Global", "New output {name}");
-                    let wl_output = proxy.bind(name, 1, qhandle, ());
+                    let wl_output = proxy.bind(name, 3, qhandle, ());
                     state.outputs.insert(name, Output::new(wl_output));
                     state.init_missing_surfaces();
                 }
