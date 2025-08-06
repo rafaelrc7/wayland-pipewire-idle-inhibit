@@ -8,11 +8,13 @@ For detecting media being played, it depends on [PipeWire](https://www.pipewire.
 
 For inhibiting idle, it depends, either on:
 
-- Wayland compositors implementing the experimental protocol
-  [idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1)
+- Wayland compositors implementing the experimental protocols
+  [idle-inhibit-unstable-v1](https://wayland.app/protocols/idle-inhibit-unstable-v1) and [wlr-layer-shell-unstable-v1](https://wayland.app/protocols/wlr-layer-shell-unstable-v1)
 - Daemons implementing the D-Bus
   [org.freedesktop.ScreenSaver](https://specifications.freedesktop.org/idle-inhibit-spec/latest/re01.html)
   service
+
+Supported by pretty much all Wayland Compositors. They only exception being Gnome, on which it works only using the Dbus method, because it does not implement the [wlr-layer-shell-unstable-v1](https://wayland.app/protocols/wlr-layer-shell-unstable-v1) protocol.
 
 ### Main features
 
@@ -24,15 +26,6 @@ For inhibiting idle, it depends, either on:
 - Support for idle inhibiting through Wayland compositors and dbus services
 
 Feedback and contributions are welcome!
-
-## Tested on
-
-- Sway: Works
-- Hyprland: Works
-- KDE Plasma: Works
-
-Should work fine with any compositor that implements `idle-inhibit-unstable-v1`
-or any compositor/DE that offers the `org.freedesktop.ScreenSaver` service.
 
 ## Availability
 
@@ -127,19 +120,8 @@ This package is available in the nixpkgs repo as
 Add the following snippet to your flake inputs:
 
 ```nix
-wayland-pipewire-idle-inhibit = {
-  url = "github:rafaelrc7/wayland-pipewire-idle-inhibit";
-  inputs.nixpkgs.follows = "nixpkgs";
-};
+wayland-pipewire-idle-inhibit.url = "github:rafaelrc7/wayland-pipewire-idle-inhibit";
 ```
-
-> [!WARNING]
-> This flake depends on nixos-unstable, if you are using a stable nixpkgs
-> version (23.11), either delete the `inputs.nixpkgs.follows` line, or set it
-> to follow a nixpkgs-unstable input, otherwise the package will not build. You
-> may need to run `$ nix flake update wayland-pipewire-idle-inhibit` after
-> removing the line if the build still fails. (see
-> [#7](https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit/issues/7))
 
 From this point you have many options:
 
