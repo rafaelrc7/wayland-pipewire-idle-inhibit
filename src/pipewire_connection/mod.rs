@@ -58,10 +58,11 @@ pub enum PWMsg {
 }
 
 /// Events that are fired by the PipeWire thread and must be treated by the caller
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum PWEvent {
     GraphUpdated,
     InhibitIdleState(bool),
+    ThreadPanic(Option<String>),
 }
 
 /// Wrapper around the PipeWire thread and channel

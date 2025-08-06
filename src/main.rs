@@ -19,6 +19,7 @@
 
 use std::{
     error::Error,
+    panic,
     process::ExitCode,
     sync::{
         Arc,
@@ -65,7 +66,7 @@ impl From<u64> for MessageQueueType {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum Msg {
     PWEvent(PWEvent),
     InhibitIdleStateEvent(InhibitIdleStateEvent),
@@ -86,6 +87,14 @@ impl Msg {
 
                 PWEvent::InhibitIdleState(inhibit_idle_state) => {
                     inhibit_idle_state_manager.set_is_idle_inhibited(*inhibit_idle_state);
+                }
+
+                PWEvent::ThreadPanic(err) => {
+                    if let Some(err) = err {
+                        Err(format!("Fatal PipeWire Error: {err}"))?;
+                    } else {
+                        Err("Fatal PipeWire Error!")?;
+                    }
                 }
             },
 
@@ -136,6 +145,22 @@ fn run() -> Result<(), Box<dyn Error>> {
     let epoll = Epoll::new(EpollCreateFlags::empty())?;
     let (mq, mq_receiver) =
         message_queue::message_queue::<Msg>(&epoll, MessageQueueType::Main as u64)?;
+
+    panic::set_hook(Box::new({
+        let mq = mq.clone();
+        move |panic_info| {
+            let err = panic_info
+                .payload()
+                .downcast_ref::<&str>()
+                .map(|s| String::from(*s))
+                .or(panic_info
+                    .payload()
+                    .downcast_ref::<String>()
+                    .map(|s| s.to_owned()));
+
+            mq.send(Msg::PWEvent(PWEvent::ThreadPanic(err))).unwrap();
+        }
+    }));
 
     let pw_thread = PWThread::new(
         mq.clone(),
