@@ -17,8 +17,6 @@
 //! Helper to manage the idle inhibiting state. This module is used to treat PipeWire events and
 //! send messages if and when idle should be inhibited, treating the minimum sound duration.
 
-use std::sync::{Arc, RwLock};
-
 use chrono::Duration;
 use log::{debug, trace};
 use timer::{Guard, Timer};
@@ -29,6 +27,7 @@ use crate::message_queue::MessageQueueSender;
 #[derive(Clone, Copy, Debug)]
 pub enum InhibitIdleStateEvent {
     InhibitIdle(bool),
+    AudioInhibitTimerFired,
 }
 
 /// Manager of the idle inhibit state
@@ -36,7 +35,9 @@ pub struct InhibitIdleState<Msg: From<InhibitIdleStateEvent> + Clone> {
     inhibit_idle_timout_callback: Timer,
     inhibit_idle_timout_callback_guard: Option<Guard>,
     inhibit_idle_timout: Option<Duration>,
-    is_idle_inhibited: Arc<RwLock<bool>>,
+    is_audio_inhibited: bool,
+    is_manual_inhibited: bool,
+    is_inhibited: bool,
     inhibit_idle_callback: MessageQueueSender<Msg>,
 }
 
@@ -49,66 +50,62 @@ impl<Msg: From<InhibitIdleStateEvent> + Clone + Send + 'static> InhibitIdleState
             inhibit_idle_timout_callback: Timer::new(),
             inhibit_idle_timout_callback_guard: None,
             inhibit_idle_timout,
-            is_idle_inhibited: Arc::new(RwLock::new(false)),
+            is_audio_inhibited: false,
+            is_manual_inhibited: false,
+            is_inhibited: false,
             inhibit_idle_callback,
         }
     }
 
-    /// Wrapper function to update the inhibit idle state. It only updates the value if necessary,
-    /// and manages the timer. When a call is made to change the state, it starts a timer with the
-    /// set minimum duration that actually executes the update of the is_idle_inhibited field.
-    pub fn set_is_idle_inhibited(&mut self, is_idle_inhibited: bool) {
-        if let (Some(inhibit_idle_timout), true) = (self.inhibit_idle_timout, is_idle_inhibited) {
+    pub fn toggle_manual_inhibit(&mut self) {
+
+        self.is_manual_inhibited = !self.is_manual_inhibited;
+        debug!(target: "InhibitIdleState", "Manual inhibit toggled to: {}", self.is_manual_inhibited);
+        self.update_is_idle_inhibited();
+    }
+
+    pub fn set_is_audio_inhibited(&mut self, is_audio_inhibited: bool) {
+        if let (Some(inhibit_idle_timout), true) = (self.inhibit_idle_timout, is_audio_inhibited) {
             if self.inhibit_idle_timout_callback_guard.is_some() {
-                trace!(target: "InhibitIdleState::set_is_idle_inhibited", "Update Timer is already running");
+                trace!(target: "InhibitIdleState::set_is_audio_inhibited", "Update Timer is already running");
                 return;
             }
 
-            debug!(target: "InhibitIdleState::set_is_idle_inhibited", "Started Timer to inhibit idling");
+            debug!(target: "InhibitIdleState::set_is_audio_inhibited", "Started Timer to inhibit idling");
+            let callback = self.inhibit_idle_callback.clone();
             self.inhibit_idle_timout_callback_guard = Some(
                 self.inhibit_idle_timout_callback
-                    .schedule_with_delay(inhibit_idle_timout, {
-                        let is_idle_inhibited_ref = Arc::clone(&self.is_idle_inhibited);
-                        let inhibit_idle_callback = self.inhibit_idle_callback.clone();
-                        move || {
-                            let is_idle_inhibited_ref = &is_idle_inhibited_ref;
-                            Self::update_is_idle_inhibited(
-                                Arc::clone(is_idle_inhibited_ref),
-                                inhibit_idle_callback.clone(),
-                                is_idle_inhibited,
-                            );
-                        }
+                    .schedule_with_delay(inhibit_idle_timout, move || {
+                        callback.send(InhibitIdleStateEvent::AudioInhibitTimerFired.into()).unwrap();
                     }),
             );
         } else {
             if self.inhibit_idle_timout_callback_guard.is_some() {
                 self.inhibit_idle_timout_callback_guard = None
             }
-            Self::update_is_idle_inhibited(
-                self.is_idle_inhibited.clone(),
-                self.inhibit_idle_callback.clone(),
-                is_idle_inhibited,
-            );
+            self.is_audio_inhibited = is_audio_inhibited;
+            self.update_is_idle_inhibited();
         }
     }
 
-    /// Private function that accesses the reference of the state and updates its value
-    fn update_is_idle_inhibited(
-        is_idle_inhibited_ref: Arc<RwLock<bool>>,
-        inhibit_idle_callback: MessageQueueSender<Msg>,
-        is_idle_inhibited: bool,
-    ) {
-        if *is_idle_inhibited_ref.read().unwrap() == is_idle_inhibited {
+    pub fn set_is_inhibited_from_timer(&mut self) {
+        self.is_audio_inhibited = true;
+        self.update_is_idle_inhibited();
+    }
+
+    fn update_is_idle_inhibited(&mut self) {
+        let should_inhibit = self.is_audio_inhibited || self.is_manual_inhibited;
+
+        if self.is_inhibited == should_inhibit {
             trace!(target: "InhibitIdleState", "Tried to update 'is_idle_inhibited', but value is the same");
             return;
         }
 
-        *is_idle_inhibited_ref.write().unwrap() = is_idle_inhibited;
-        inhibit_idle_callback
+        self.is_inhibited = should_inhibit;
+        self.inhibit_idle_callback
             .send(Msg::from(InhibitIdleStateEvent::InhibitIdle(
-                is_idle_inhibited,
+                should_inhibit,
             )))
             .unwrap();
-        debug!(target: "InhibitIdleState", "Idle inhibting was {}", if is_idle_inhibited { "ENABLED" } else { "DISABLED" });
     }
 }
