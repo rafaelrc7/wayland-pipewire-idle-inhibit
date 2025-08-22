@@ -1,13 +1,13 @@
 [package]
 name = "wayland-pipewire-idle-inhibit"
-version = "0.6.0"
-authors = ["Rafael Carvalho <contact@rafaelrc.com>"]
+version = "0.7.0"
+authors = ["Rafael Carvalho <contact@rafaelrc.com>", "Alanon202"]
 edition = "2021"
 license = "GPL-3.0-only"
 repository = "https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit"
 readme = "README.md"
-description = "Inhibit wayland idle when computer is playing sound"
-keywords = ["pipewire", "wayland", "utility", "idle", "inhibit"]
+description = "Inhibit wayland idle when computer is playing sound, with manual toggle support in waybar module"
+keywords = ["pipewire", "wayland", "utility", "idle", "inhibit", "waybar"]
 categories = ["multimedia"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -27,6 +27,7 @@ serde_with = "3.7"
 signal-hook = "0.3"
 simplelog = "0.12"
 timer = "0.2"
+tokio = { version = "1", features = ["full"] }
 wayland-client = "0.31"
 wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
 wayland-protocols-wlr = { version = "0.3.8", features = ["client"] }
