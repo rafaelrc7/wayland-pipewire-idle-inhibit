@@ -1,5 +1,7 @@
 [Install]
 WantedBy=graphical-session.target
+After=pipewire.service graphical-session.target
+Wants=pipewire.service
 
 [Service]
 ExecStart=wayland-pipewire-idle-inhibit
