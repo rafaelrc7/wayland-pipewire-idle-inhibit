@@ -5,7 +5,7 @@
   rustPlatform,
 }:
 let
-  cargoToml = builtins.fromTOML (builtins.readFile ./Cargo.toml);
+  cargoToml = fromTOML (builtins.readFile ./Cargo.toml);
 in
 rustPlatform.buildRustPackage {
   inherit (cargoToml.package) version;
@@ -23,4 +23,12 @@ rustPlatform.buildRustPackage {
   buildInputs = [
     pipewire
   ];
+
+  meta = {
+    inherit (cargoToml.package) description;
+    homepage = cargoToml.package.repository;
+    mainProgram = cargoToml.package.name;
+    license = lib.licenses.gpl3Only;
+    platforms = lib.platforms.linux;
+  };
 }
