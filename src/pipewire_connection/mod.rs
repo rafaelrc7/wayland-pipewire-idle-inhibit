@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2025  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2023-2026  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 3 as published by
@@ -27,13 +27,13 @@ use std::{
 };
 
 use pipewire::{
-    context::Context,
+    context::ContextRc,
     keys,
     link::{Link, LinkChangeMask, LinkInfoRef, LinkListener, LinkState},
-    main_loop::MainLoop,
+    main_loop::MainLoopRc,
     node::{Node, NodeInfoRef, NodeListener},
     port::{Port, PortInfoRef, PortListener},
-    registry::{GlobalObject, Registry},
+    registry::{GlobalObject, RegistryRc},
     spa::utils::{Direction, dict::DictRef},
     types::ObjectType,
 };
@@ -123,10 +123,10 @@ fn pw_thread<Msg: From<PWEvent> + Clone + 'static>(
 ) {
     pipewire::init();
 
-    let mainloop = MainLoop::new(None).expect("Failed to create mainloop.");
-    let context = Rc::new(Context::new(&mainloop).expect("Failed to create context."));
-    let core = Rc::new(context.connect(None).expect("Failed to get core."));
-    let registry = Rc::new(core.get_registry().expect("Failed to get registry"));
+    let mainloop = MainLoopRc::new(None).expect("Failed to create mainloop.");
+    let context = ContextRc::new(&mainloop, None).expect("Failed to create context.");
+    let core = context.connect_rc(None).expect("Failed to get core.");
+    let registry = core.get_registry_rc().expect("Failed to get registry");
 
     let graph = Rc::new(RefCell::new(PWGraph::new(sink_whitelist, node_blacklist)));
 
@@ -137,12 +137,12 @@ fn pw_thread<Msg: From<PWEvent> + Clone + 'static>(
             .add_listener_local()
             .global({
                 // Object created
-                let registry = Rc::clone(&registry);
+                let registry = registry.clone();
                 let graph = Rc::clone(&graph);
                 let pw_event_listener = pw_event_listener.clone();
 
                 move |global| {
-                    let registry = Rc::clone(&registry);
+                    let registry = registry.clone();
                     let graph = Rc::clone(&graph);
 
                     // Stores only important objects to the algorithm
@@ -172,7 +172,7 @@ fn pw_thread<Msg: From<PWEvent> + Clone + 'static>(
             .register()
     };
 
-    let _receiver = pw_event_queue.attach(mainloop.as_ref(), {
+    let _receiver = pw_event_queue.attach(mainloop.loop_(), {
         let mainloop = mainloop.clone();
 
         // Treats events sent to the MainLoop thread by the caller
@@ -197,7 +197,7 @@ fn pw_thread<Msg: From<PWEvent> + Clone + 'static>(
 /// The code also subscribes to updates to that Node.
 fn registry_global_node<Msg: From<PWEvent> + Clone + 'static>(
     node: &GlobalObject<&DictRef>,
-    registry: Rc<Registry>,
+    registry: RegistryRc,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: MessageQueueSender<Msg>,
 ) {
@@ -301,7 +301,7 @@ fn direction_from_string(direction: &str) -> Option<Direction> {
 /// The code also subscribes to updates to that Port.
 fn registry_global_port<Msg: From<PWEvent> + Clone + 'static>(
     port: &GlobalObject<&DictRef>,
-    registry: Rc<Registry>,
+    registry: RegistryRc,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: MessageQueueSender<Msg>,
 ) {
@@ -389,7 +389,7 @@ fn port_info<Msg: From<PWEvent> + Clone>(
 /// The code also subscribes to updates to that Port.
 fn registry_global_link<Msg: From<PWEvent> + Clone + 'static>(
     link: &GlobalObject<&DictRef>,
-    registry: Rc<Registry>,
+    registry: RegistryRc,
     graph: Rc<RefCell<PWGraph>>,
     pw_event_listener: MessageQueueSender<Msg>,
 ) {
