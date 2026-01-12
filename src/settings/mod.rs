@@ -1,4 +1,4 @@
-// Copyright (C) 2023-2024  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2023-2026  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 3 as published by
@@ -59,7 +59,7 @@ impl Settings {
 
         let config_path = match cli.config {
             Some(ref p) => PathBuf::from(p),
-            None => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))?
+            None => xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME"))
                 .place_config_file("config.toml")?,
         };
 

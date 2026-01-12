@@ -20,15 +20,15 @@ figment = { version = "0.10", features = ["toml"] }
 log = { version = "0.4", features = ["serde"] }
 nix = { version = "0.30", features = ["event", "mman", "fs"] }
 pipewire = "0.8"
-regex = "1.10"
+regex = "1.12"
 serde_regex = "1.1"
 serde = { version = "1.0", features = ["derive"] }
-serde_with = "3.7"
-signal-hook = "0.3"
+serde_with = "3.16"
+signal-hook = "0.4"
 simplelog = "0.12"
 timer = "0.2"
 wayland-client = "0.31"
-wayland-protocols = { version = "0.31", features = ["unstable", "client"] }
-wayland-protocols-wlr = { version = "0.3.8", features = ["client"] }
-xdg = "2.5"
-zbus = "4.1"
+wayland-protocols = { version = "0.32", features = ["unstable", "client"] }
+wayland-protocols-wlr = { version = "0.3", features = ["client"] }
+xdg = "3.0"
+zbus = "5.13"

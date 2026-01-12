@@ -1,4 +1,4 @@
-// Copyright (C) 2024  Rafael Carvalho <contact@rafaelrc.com>
+// Copyright (C) 2024-2026  Rafael Carvalho <contact@rafaelrc.com>
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License version 3 as published by
@@ -11,7 +11,7 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//
+
 // SPDX-License-Identifier: GPL-3.0-only
 
 use std::error::Error;
@@ -22,14 +22,12 @@ use zbus::{blocking::Connection, proxy};
 use super::IdleInhibitor;
 
 #[proxy(
-    default_service = "org.freedesktop.ScreenSaver",
     interface = "org.freedesktop.ScreenSaver",
+    default_service = "org.freedesktop.ScreenSaver",
     default_path = "/ScreenSaver"
 )]
 trait ScreenSaver {
     fn Inhibit(&self, application_name: &str, reason_for_inhibit: &str) -> zbus::Result<u32>;
-
-    #[dbus_proxy(no_reply_expected)]
     fn UnInhibit(&self, cookie: u32) -> zbus::Result<()>;
 }
 
