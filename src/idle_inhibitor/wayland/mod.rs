@@ -23,6 +23,7 @@ use std::os::fd::{AsFd, OwnedFd};
 
 use nix::errno::Errno;
 use nix::fcntl::OFlag;
+use nix::libc::off_t;
 use nix::sys::mman::{shm_open, shm_unlink};
 use nix::sys::stat::Mode;
 use nix::unistd::ftruncate;
@@ -277,7 +278,7 @@ impl Surface {
         let stride: i32 = width * 4;
         let pool_size: i32 = height * stride * 2;
 
-        let shm = Self::allocate_shm_file(pool_size as i64)?;
+        let shm = Self::allocate_shm_file(pool_size as off_t)?;
 
         let pool = state.shm.create_pool(shm.as_fd(), pool_size, qhandle, ());
         let buffer = pool.create_buffer(0, width, height, stride, Format::Argb8888, qhandle, ());
@@ -292,7 +293,7 @@ impl Surface {
 
     /// Creates a shm file, unlinks it (so that it gets removed when closed) and allocates the
     /// requested number of bytes.
-    fn allocate_shm_file(size: i64) -> Result<OwnedFd, Box<dyn Error>> {
+    fn allocate_shm_file(size: off_t) -> Result<OwnedFd, Box<dyn Error>> {
         let (shm, shm_name) = Self::create_shm_file()?;
 
         shm_unlink(shm_name.as_str())?;
