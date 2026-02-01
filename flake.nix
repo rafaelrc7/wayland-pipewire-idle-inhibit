@@ -14,36 +14,27 @@
   outputs =
     inputs:
     inputs.flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = import inputs.systems;
       imports = [
         inputs.treefmt-nix.flakeModule
         inputs.flake-parts.flakeModules.easyOverlay
+        ./module.nix
       ];
-      flake = {
-        nixosModules = rec {
-          wayland-pipewire-idle-inhibit = import ./modules/nixos.nix;
-          default = wayland-pipewire-idle-inhibit;
-        };
-        homeModules = rec {
-          wayland-pipewire-idle-inhibit = import ./modules/home-manager.nix;
-          default = wayland-pipewire-idle-inhibit;
-        };
-      };
+      systems = import inputs.systems;
       perSystem =
-        { config, pkgs, ... }:
+        { self', pkgs, ... }:
         {
-          packages = rec {
-            default = wayland-pipewire-idle-inhibit;
+          packages = {
+            default = self'.packages.wayland-pipewire-idle-inhibit;
             wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
           };
 
           overlayAttrs = {
-            inherit (config.packages) wayland-pipewire-idle-inhibit;
+            inherit (self'.packages) wayland-pipewire-idle-inhibit;
           };
 
           devShells.default = import ./shell.nix {
             inherit pkgs;
-            inputsFrom = [ config.packages.wayland-pipewire-idle-inhibit ];
+            inputsFrom = [ self'.packages.wayland-pipewire-idle-inhibit ];
           };
 
           treefmt.config = {
