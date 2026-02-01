@@ -1,11 +1,7 @@
 {
   pkgs ? import <nixpkgs> { },
   devTools ? true,
-  inputsFrom ? [
-    pkgs.callPackage
-    ./default.nix
-    { }
-  ],
+  inputsFrom ? [ (pkgs.callPackage ./default.nix { }) ],
   ...
 }:
 pkgs.mkShell {
@@ -17,11 +13,11 @@ pkgs.mkShell {
       cargo
       rustc
     ]
-    ++ pkgs.lib.optional devTools [
+    ++ pkgs.lib.optionals devTools [
       clippy
       gdb
-      rustfmt
       rust-analyzer
+      rustfmt
       valgrind
     ];
 }
