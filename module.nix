@@ -17,7 +17,7 @@ let
 
         package = mkOption {
           type = types.package;
-          default = self.packages.${pkgs.stdenv.hostPlatform.system}.wayland-pipewire-idle-inhibit;
+          default = pkgs.callPackage ./default.nix { };
           description = "The wayland-pipewire-idle-inhibit package to use.";
         };
 
