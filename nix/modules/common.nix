@@ -14,7 +14,7 @@ in
 
     package = mkOption {
       type = types.package;
-      default = pkgs.callPackage ../default.nix { };
+      default = pkgs.callPackage ../../default.nix { };
       description = "The wayland-pipewire-idle-inhibit package to use.";
     };
 
