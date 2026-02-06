@@ -18,6 +18,11 @@ in
       Unit = {
         Description = "Inhibit Wayland idling when media is played through pipewire";
         Documentation = "https://github.com/rafaelrc7/wayland-pipewire-idle-inhibit";
+        After = [
+          "pipewire.service"
+          cfg.systemdTarget
+        ];
+        Wants = [ "pipewire.service" ];
       };
 
       Install.WantedBy = [ cfg.systemdTarget ];
