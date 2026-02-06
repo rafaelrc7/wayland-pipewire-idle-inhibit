@@ -30,20 +30,20 @@
         };
       };
       perSystem =
-        { config, pkgs, ... }:
+        { self', pkgs, ... }:
         {
-          packages = rec {
-            default = wayland-pipewire-idle-inhibit;
+          packages = {
+            default = self'.packages.wayland-pipewire-idle-inhibit;
             wayland-pipewire-idle-inhibit = pkgs.callPackage ./default.nix { };
           };
 
           overlayAttrs = {
-            inherit (config.packages) wayland-pipewire-idle-inhibit;
+            inherit (self'.packages) wayland-pipewire-idle-inhibit;
           };
 
           devShells.default = import ./shell.nix {
             inherit pkgs;
-            inputsFrom = [ config.packages.wayland-pipewire-idle-inhibit ];
+            inputsFrom = [ self'.packages.wayland-pipewire-idle-inhibit ];
           };
 
           treefmt.config = {
