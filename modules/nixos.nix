@@ -23,7 +23,7 @@ in
       wantedBy = [ cfg.systemdTarget ];
 
       serviceConfig = {
-        ExecStart = "${cfg.package}/bin/wayland-pipewire-idle-inhibit --config ${configFile}";
+        ExecStart = "${lib.getExe cfg.package} --config ${configFile}";
         Restart = "always";
         RestartSec = 10;
       };

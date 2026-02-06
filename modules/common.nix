@@ -15,9 +15,14 @@ in
     package = mkOption {
       type = types.package;
       default = pkgs.callPackage ../default.nix { };
-      description = ''
-        The wayland-pipewire-idle-inhibit package to use.
-      '';
+      description = "The wayland-pipewire-idle-inhibit package to use.";
+    };
+
+    systemdTarget = mkOption {
+      type = types.str;
+      default = "graphical-session.target";
+      example = "sway-session.target";
+      description = "systemd target to bind to.";
     };
 
     settings = mkOption {
@@ -32,18 +37,7 @@ in
           ];
         }
       '';
-      description = ''
-        Configuration for wayland-pipewire-idle-inhibit.
-      '';
-    };
-
-    systemdTarget = mkOption {
-      type = types.str;
-      default = "graphical-session.target";
-      example = "sway-session.target";
-      description = ''
-        systemd target to bind to.
-      '';
+      description = "Configuration for wayland-pipewire-idle-inhibit.";
     };
   };
 }
