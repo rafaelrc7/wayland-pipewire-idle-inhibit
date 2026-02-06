@@ -4,8 +4,8 @@
   pkgs,
   ...
 }:
-with lib;
 let
+  inherit (lib) mkIf;
   cfg = config.services.wayland-pipewire-idle-inhibit;
   tomlFormat = pkgs.formats.toml { };
   configFile = tomlFormat.generate "wayland-pipewire-idle-inhibit.toml" cfg.settings;

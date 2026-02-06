@@ -1,6 +1,11 @@
 { lib, pkgs, ... }:
-with lib;
 let
+  inherit (lib)
+    literalExpression
+    mkEnableOption
+    mkOption
+    types
+    ;
   tomlFormat = pkgs.formats.toml { };
 in
 {
