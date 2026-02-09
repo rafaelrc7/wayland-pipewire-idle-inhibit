@@ -68,16 +68,6 @@ print_status() {
     printf '{"alt": "%s", "tooltip": "%s", "class": "%s"}\n' "$alt" "$tooltip" "$class"
 }
 
-# Get Initial State
-if busctl --user status "$SERVICE" &>/dev/null; then
-    # Properties are PascalCase by default in zbus
-    IS_IDLE=$(busctl --user get-property $SERVICE $OBJECT $INTERFACE IsIdleInhibited --json=short 2>/dev/null | jq -r '.data // "false"')
-    IS_MANUAL=$(busctl --user get-property $SERVICE $OBJECT $INTERFACE ManualInhibit --json=short 2>/dev/null | jq -r '.data // "false"')
-else
-    IS_IDLE="off"
-    IS_MANUAL="off"
-fi
-
 # Function to fetch and print the current state
 get_and_print_state() {
     # Check if the service exists on the bus
