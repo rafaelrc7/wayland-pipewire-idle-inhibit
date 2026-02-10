@@ -29,6 +29,7 @@ use crate::message_queue::MessageQueueSender;
 #[derive(Clone, Copy, Debug)]
 pub enum InhibitIdleStateEvent {
     InhibitIdle(bool),
+    TimeoutExpired,
 }
 
 /// Manager of the idle inhibit state
@@ -36,6 +37,8 @@ pub struct InhibitIdleState<Msg: From<InhibitIdleStateEvent> + Clone> {
     inhibit_idle_timout_callback: Timer,
     inhibit_idle_timout_callback_guard: Option<Guard>,
     inhibit_idle_timout: Option<Duration>,
+    pw_inhibit: bool,
+    manual_inhibit: bool,
     is_idle_inhibited: Arc<RwLock<bool>>,
     inhibit_idle_callback: MessageQueueSender<Msg>,
 }
@@ -49,16 +52,35 @@ impl<Msg: From<InhibitIdleStateEvent> + Clone + Send + 'static> InhibitIdleState
             inhibit_idle_timout_callback: Timer::new(),
             inhibit_idle_timout_callback_guard: None,
             inhibit_idle_timout,
+            pw_inhibit: false,
+            manual_inhibit: false,
             is_idle_inhibited: Arc::new(RwLock::new(false)),
             inhibit_idle_callback,
         }
     }
 
-    /// Wrapper function to update the inhibit idle state. It only updates the value if necessary,
-    /// and manages the timer. When a call is made to change the state, it starts a timer with the
-    /// set minimum duration that actually executes the update of the is_idle_inhibited field.
+    pub fn set_manual_inhibit(&mut self, value: bool) {
+        self.manual_inhibit = value;
+
+        // Force an update event because manual state changed, even if effective state (bool) might be same
+        self.reevaluate_effective_state(true);
+    }
+
+    pub fn handle_timeout(&mut self) {
+        if self.inhibit_idle_timout_callback_guard.is_some() {
+            debug!(target: "InhibitIdleState::handle_timeout", "Timer expired, locking inhibition state");
+            self.inhibit_idle_timout_callback_guard = None;
+            self.pw_inhibit = true;
+            self.reevaluate_effective_state(false);
+        }
+    }
+
     pub fn set_is_idle_inhibited(&mut self, is_idle_inhibited: bool) {
         if let (Some(inhibit_idle_timout), true) = (self.inhibit_idle_timout, is_idle_inhibited) {
+            if self.pw_inhibit {
+                return;
+            }
+
             if self.inhibit_idle_timout_callback_guard.is_some() {
                 trace!(target: "InhibitIdleState::set_is_idle_inhibited", "Update Timer is already running");
                 return;
@@ -68,15 +90,11 @@ impl<Msg: From<InhibitIdleStateEvent> + Clone + Send + 'static> InhibitIdleState
             self.inhibit_idle_timout_callback_guard = Some(
                 self.inhibit_idle_timout_callback
                     .schedule_with_delay(inhibit_idle_timout, {
-                        let is_idle_inhibited_ref = Arc::clone(&self.is_idle_inhibited);
                         let inhibit_idle_callback = self.inhibit_idle_callback.clone();
                         move || {
-                            let is_idle_inhibited_ref = &is_idle_inhibited_ref;
-                            Self::update_is_idle_inhibited(
-                                Arc::clone(is_idle_inhibited_ref),
-                                inhibit_idle_callback.clone(),
-                                is_idle_inhibited,
-                            );
+                            inhibit_idle_callback
+                                .send(Msg::from(InhibitIdleStateEvent::TimeoutExpired))
+                                .unwrap();
                         }
                     }),
             );
@@ -84,22 +102,28 @@ impl<Msg: From<InhibitIdleStateEvent> + Clone + Send + 'static> InhibitIdleState
             if self.inhibit_idle_timout_callback_guard.is_some() {
                 self.inhibit_idle_timout_callback_guard = None
             }
-            Self::update_is_idle_inhibited(
-                self.is_idle_inhibited.clone(),
-                self.inhibit_idle_callback.clone(),
-                is_idle_inhibited,
-            );
+            self.pw_inhibit = is_idle_inhibited;
+            self.reevaluate_effective_state(false);
         }
     }
 
-    /// Private function that accesses the reference of the state and updates its value
+    fn reevaluate_effective_state(&mut self, force_emit: bool) {
+        let new_effective = self.pw_inhibit || self.manual_inhibit;
+        Self::update_is_idle_inhibited(
+            &self.is_idle_inhibited,
+            &self.inhibit_idle_callback,
+            new_effective,
+            force_emit,
+        );
+    }
+
     fn update_is_idle_inhibited(
-        is_idle_inhibited_ref: Arc<RwLock<bool>>,
-        inhibit_idle_callback: MessageQueueSender<Msg>,
+        is_idle_inhibited_ref: &Arc<RwLock<bool>>,
+        inhibit_idle_callback: &MessageQueueSender<Msg>,
         is_idle_inhibited: bool,
+        force_emit: bool,
     ) {
-        if *is_idle_inhibited_ref.read().unwrap() == is_idle_inhibited {
-            trace!(target: "InhibitIdleState", "Tried to update 'is_idle_inhibited', but value is the same");
+        if !force_emit && *is_idle_inhibited_ref.read().unwrap() == is_idle_inhibited {
             return;
         }
 
@@ -109,6 +133,6 @@ impl<Msg: From<InhibitIdleStateEvent> + Clone + Send + 'static> InhibitIdleState
                 is_idle_inhibited,
             )))
             .unwrap();
-        debug!(target: "InhibitIdleState", "Idle inhibting was {}", if is_idle_inhibited { "ENABLED" } else { "DISABLED" });
+        debug!(target: "InhibitIdleState", "Idle inhibiting was {}, force={}", if is_idle_inhibited { "ENABLED" } else { "DISABLED" }, force_emit);
     }
 }
