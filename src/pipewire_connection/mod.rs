@@ -31,7 +31,7 @@ use pipewire::{
     keys,
     link::{Link, LinkChangeMask, LinkInfoRef, LinkListener, LinkState},
     main_loop::MainLoopRc,
-    node::{Node, NodeInfoRef, NodeListener},
+    node::{Node, NodeChangeMask, NodeInfoRef, NodeListener, NodeState},
     port::{Port, PortInfoRef, PortListener},
     registry::{GlobalObject, RegistryRc},
     spa::utils::{Direction, dict::DictRef},
@@ -232,6 +232,7 @@ fn registry_global_node<Msg: From<PWEvent> + Clone + 'static>(
         media_class,
         media_role,
         media_software,
+        running: None,
     };
     graph.borrow_mut().insert(
         id,
@@ -268,6 +269,12 @@ fn node_info<Msg: From<PWEvent> + Clone>(
     let media_role = props.get(&keys::MEDIA_ROLE).map(|s| s.to_string());
     let media_software = props.get(&keys::MEDIA_SOFTWARE).map(|s| s.to_string());
 
+    let running = if info.change_mask().contains(NodeChangeMask::STATE) {
+        Some(matches!(info.state(), NodeState::Running))
+    } else {
+        None
+    };
+
     let new_data = NodeData {
         name,
         app_name,
@@ -276,6 +283,7 @@ fn node_info<Msg: From<PWEvent> + Clone>(
         media_class,
         media_role,
         media_software,
+        running,
     };
     if graph.borrow_mut().update(id, PWObjectData::Node(new_data)) {
         pw_event_listener
