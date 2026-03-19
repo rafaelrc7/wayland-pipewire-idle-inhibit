@@ -17,15 +17,22 @@
 //! Inhibit idle in Wayland compositors when audio is being played through PipeWire, with highly
 //! customisable options
 
+use std::collections::HashMap;
 use std::{
     error::Error,
     panic,
     process::ExitCode,
     sync::{
-        Arc,
         atomic::{self, AtomicBool},
+        Arc,
     },
 };
+
+use zbus::blocking::{object_server::InterfaceRef, Connection};
+use zbus::zvariant::Value;
+
+mod dbus_server;
+use dbus_server::DBusServer;
 
 mod inhibit_idle_state;
 use inhibit_idle_state::{InhibitIdleState, InhibitIdleStateEvent};
@@ -36,10 +43,10 @@ use pipewire_connection::{PWEvent, PWMsg, PWThread};
 
 mod idle_inhibitor;
 use idle_inhibitor::{
-    IdleInhibitor,
     dbus::DbusIdleInhibitor,
     dry::DryRunIdleInhibitor,
     wayland::{WaylandEventQueue, WaylandIdleInhibitor},
+    IdleInhibitor,
 };
 
 mod settings;
@@ -70,6 +77,7 @@ impl From<u64> for MessageQueueType {
 enum Msg {
     PWEvent(PWEvent),
     InhibitIdleStateEvent(InhibitIdleStateEvent),
+    ManualInhibit(bool),
 }
 
 impl Msg {
@@ -78,6 +86,8 @@ impl Msg {
         pw_thread: &PWThread,
         inhibit_idle_state_manager: &mut InhibitIdleState<Msg>,
         idle_inhibitor: &mut dyn IdleInhibitor,
+        interface_handle: &InterfaceRef<DBusServer>,
+        dbus_conn: &Connection,
     ) -> Result<(), Box<dyn Error>> {
         match self {
             Msg::PWEvent(pw_event) => match pw_event {
@@ -102,12 +112,50 @@ impl Msg {
                 match inhibit_idle_state_event {
                     InhibitIdleStateEvent::InhibitIdle(inhibit_idle_state) => {
                         idle_inhibitor.set_inhibit_idle(*inhibit_idle_state)?;
+
+                        interface_handle
+                            .get_mut()
+                            .set_effective_inhibit(*inhibit_idle_state);
+
+                        emit_properties_changed(interface_handle, dbus_conn)?;
+                    }
+                    InhibitIdleStateEvent::TimeoutExpired => {
+                        inhibit_idle_state_manager.handle_timeout();
                     }
                 }
+            }
+
+            Msg::ManualInhibit(val) => {
+                inhibit_idle_state_manager.set_manual_inhibit(*val);
             }
         }
         Ok(())
     }
+}
+
+/// Helper to emit PropertiesChanged signal
+fn emit_properties_changed(
+    interface_handle: &InterfaceRef<DBusServer>,
+    dbus_conn: &Connection,
+) -> Result<(), Box<dyn Error>> {
+    let mut changed = HashMap::new();
+    changed.insert(
+        "IsIdleInhibited",
+        Value::from(interface_handle.get().get_effective_inhibit()),
+    );
+    changed.insert(
+        "IsManuallyInhibited",
+        Value::from(interface_handle.get().get_manual_inhibit()),
+    );
+
+    dbus_conn.emit_signal(
+        None::<()>,
+        "/com/rafaelrc/WaylandPipewireIdleInhibit",
+        "org.freedesktop.DBus.Properties",
+        "PropertiesChanged",
+        &changed,
+    )?;
+    Ok(())
 }
 
 impl From<PWEvent> for Msg {
@@ -162,6 +210,18 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     }));
 
+    // Setup DBus Server
+    let dbus_conn = Connection::session()?;
+    let dbus_interface = DBusServer::new(mq.clone());
+    dbus_conn
+        .object_server()
+        .at("/com/rafaelrc/WaylandPipewireIdleInhibit", dbus_interface)?;
+    dbus_conn.request_name("com.rafaelrc.WaylandPipewireIdleInhibit")?;
+
+    let interface_handle: InterfaceRef<DBusServer> = dbus_conn
+        .object_server()
+        .interface("/com/rafaelrc/WaylandPipewireIdleInhibit")?;
+
     let pw_thread = PWThread::new(
         mq.clone(),
         settings.get_sink_whitelist().to_vec(),
@@ -186,6 +246,8 @@ fn run() -> Result<(), Box<dyn Error>> {
                 mq_receiver,
                 &pw_thread,
                 inhibit_idle_state_manager,
+                &interface_handle,
+                &dbus_conn,
             )?;
         }
         settings::IdleInhibitor::DryRun => {
@@ -197,6 +259,8 @@ fn run() -> Result<(), Box<dyn Error>> {
                 mq_receiver,
                 &pw_thread,
                 inhibit_idle_state_manager,
+                &interface_handle,
+                &dbus_conn,
             )?;
         }
         settings::IdleInhibitor::Wayland => {
@@ -209,6 +273,8 @@ fn run() -> Result<(), Box<dyn Error>> {
                 mq_receiver,
                 &pw_thread,
                 inhibit_idle_state_manager,
+                &interface_handle,
+                &dbus_conn,
             )?;
         }
     };
@@ -227,6 +293,8 @@ fn wayland_main_loop(
     mq_receiver: MessageQueueReceiver<Msg>,
     pw_thread: &PWThread,
     mut inhibit_idle_state_manager: InhibitIdleState<Msg>,
+    interface_handle: &InterfaceRef<DBusServer>,
+    dbus_conn: &Connection,
 ) -> Result<(), Box<dyn Error>> {
     while !term.load(atomic::Ordering::Relaxed) {
         wayland_event_queue.flush()?;
@@ -263,6 +331,8 @@ fn wayland_main_loop(
                     pw_thread,
                     &mut inhibit_idle_state_manager,
                     &mut wayland_idle_inhibitor,
+                    interface_handle,
+                    dbus_conn,
                 )?;
             }
 
@@ -285,6 +355,8 @@ fn non_wayland_main_loop(
     mq_receiver: MessageQueueReceiver<Msg>,
     pw_thread: &PWThread,
     mut inhibit_idle_state_manager: InhibitIdleState<Msg>,
+    interface_handle: &InterfaceRef<DBusServer>,
+    dbus_conn: &Connection,
 ) -> Result<(), Box<dyn Error>> {
     while !term.load(atomic::Ordering::Relaxed) {
         let mut events = [EpollEvent::empty()];
@@ -299,6 +371,8 @@ fn non_wayland_main_loop(
                 pw_thread,
                 &mut inhibit_idle_state_manager,
                 idle_inhibitor.as_mut(),
+                interface_handle,
+                dbus_conn,
             )?,
 
             MessageQueueType::Unknown => log::error!(target: "main", "Unknown event queue"),
