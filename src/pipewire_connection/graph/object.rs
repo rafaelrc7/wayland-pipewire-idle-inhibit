@@ -47,6 +47,7 @@ pub struct NodeData {
     pub media_class: Option<String>,
     pub media_role: Option<String>,
     pub media_software: Option<String>,
+    pub running: Option<bool>,
 }
 
 impl NodeData {
@@ -103,6 +104,11 @@ impl NodeData {
 
         if new.media_software.is_some() && self.media_software != new.media_software {
             self.media_software = new.media_software;
+            was_updated = true;
+        }
+
+        if new.running.is_some() && self.running != new.running {
+            self.running = new.running;
             was_updated = true;
         }
 
