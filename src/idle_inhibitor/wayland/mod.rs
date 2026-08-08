@@ -20,6 +20,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::iter::repeat_with;
 use std::os::fd::{AsFd, OwnedFd};
+use std::path::PathBuf;
 
 use nix::errno::Errno;
 use nix::fcntl::OFlag;
@@ -31,8 +32,8 @@ use wayland_client::backend::ObjectId;
 use wayland_client::protocol::wl_buffer;
 use wayland_client::protocol::wl_output::WlOutput;
 use wayland_client::{
-    Connection, Dispatch, EventQueue, Proxy, QueueHandle, delegate_noop,
-    globals::{GlobalListContents, registry_queue_init},
+    delegate_noop,
+    globals::{registry_queue_init, GlobalListContents},
     protocol::{
         wl_buffer::WlBuffer,
         wl_compositor::WlCompositor,
@@ -41,6 +42,7 @@ use wayland_client::{
         wl_shm_pool::WlShmPool,
         wl_surface::WlSurface,
     },
+    Connection, Dispatch, EventQueue, Proxy, QueueHandle,
 };
 
 use wayland_protocols::wp::idle_inhibit::zv1::client::{
@@ -67,6 +69,7 @@ pub struct WaylandIdleInhibitor {
     wlr_layer_shell: ZwlrLayerShellV1,
     idle_inhibit_manager: ZwpIdleInhibitManagerV1,
     outputs: HashMap<u32, Output>, // The u32 key represents a proxy name, the ID used by Wayland
+    state_file: PathBuf,
 
     is_idle_inhibited: bool,
 }
@@ -124,6 +127,22 @@ impl WaylandIdleInhibitor {
             })
             .collect();
 
+        let state_file: PathBuf = std::env::var("XDG_STATE_HOME")
+            .map(PathBuf::from)
+            .ok()
+            .or_else(|| {
+                std::env::home_dir().map(|mut home| {
+                    home.push(".local");
+                    home.push("state");
+                    home
+                })
+            })
+            .unwrap_or_else(|| PathBuf::from("/tmp")) // last resort
+            .join("wayland-pipewire-idle-inhibit");
+
+        // safety: if /tmp doesn't exist that's quite problematic
+        std::fs::create_dir_all(state_file.parent().unwrap())?;
+
         let mut obj = Self {
             compositor,
             qhandle,
@@ -132,6 +151,7 @@ impl WaylandIdleInhibitor {
             idle_inhibit_manager,
             outputs,
             is_idle_inhibited: false,
+            state_file,
         };
         obj.init_missing_surfaces();
 
@@ -213,7 +233,11 @@ impl WaylandIdleInhibitor {
 
         if changed_value {
             //self.roundtrip()?;
-            log::info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was {}", if inhibit_idle {"ENABLED"} else {"DISABLED"});
+            let str = if inhibit_idle { "ENABLED" } else { "DISABLED" };
+
+            log::info!(target: "WaylandIdleInhibitor::set_inhibit_idle", "Idle Inhibitor was {}", str);
+
+            std::fs::write(&self.state_file, str)?;
         }
 
         Ok(())
